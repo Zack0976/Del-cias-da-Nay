@@ -7,7 +7,441 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <style>
+    :root {
+      --rosa-suave: #f8e8e8;
+      --rosa-medio: #e8b4b8;
+      --rosa-forte: #c97b84;
+      --creme: #fdf6f0;
+      --dourado: #d4a373;
+      --marrom: #5c4033;
+      --texto: #3d2c29;
+      --branco: #ffffff;
+      --sombra: 0 8px 24px rgba(92, 64, 51, 0.08);
+      --radius: 16px;
+      --transicao: 0.25s ease;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: linear-gradient(165deg, var(--creme) 0%, var(--rosa-suave) 100%);
+      background-attachment: fixed;
+      color: var(--texto);
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      background: var(--branco);
+      padding: 1.25rem 1.5rem;
+      text-align: center;
+      box-shadow: var(--sombra);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--rosa-forte);
+    }
+
+    .logo span {
+      display: block;
+      font-size: 0.85rem;
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      color: var(--marrom);
+      margin-top: 2px;
+      letter-spacing: 0.04em;
+    }
+
+    main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 1.5rem 1rem 4rem;
+    }
+
+    .intro {
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+
+    .intro h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.65rem;
+      color: var(--marrom);
+      margin-bottom: 0.4rem;
+    }
+
+    .intro p {
+      font-size: 0.95rem;
+      color: #6b5344;
+    }
+
+    .card {
+      background: var(--branco);
+      border-radius: var(--radius);
+      padding: 1.4rem 1.3rem;
+      margin-bottom: 1.25rem;
+      box-shadow: var(--sombra);
+      border: 1px solid rgba(232, 180, 184, 0.3);
+    }
+
+    .card-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem;
+      color: var(--rosa-forte);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-title::before {
+      content: '';
+      width: 4px;
+      height: 1.1em;
+      background: var(--dourado);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .dica {
+      font-size: 0.85rem;
+      color: #8a6f60;
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.35rem;
+      color: var(--marrom);
+    }
+
+    .required::after {
+      content: ' *';
+      color: var(--rosa-forte);
+    }
+
+    input[type="text"],
+    input[type="tel"],
+    input[type="date"],
+    input[type="time"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 0.8rem 0.95rem;
+      border: 1.5px solid #e8d5d0;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-family: inherit;
+      background: var(--creme);
+      color: var(--texto);
+      transition: border-color var(--transicao), box-shadow var(--transicao), background var(--transicao);
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--rosa-medio);
+      box-shadow: 0 0 0 3px rgba(201, 123, 132, 0.22);
+      background: var(--branco);
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .campo {
+      margin-bottom: 1rem;
+    }
+
+    .campo:last-child {
+      margin-bottom: 0;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.9rem;
+    }
+
+    @media (max-width: 480px) {
+      .row { grid-template-columns: 1fr; }
+    }
+
+    .opcoes-radio {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .opcao-radio {
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .opcao-radio input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .opcao-radio label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.9rem 1rem;
+      background: var(--creme);
+      border: 1.5px solid #e8d5d0;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all var(--transicao);
+      margin: 0;
+      user-select: none;
+    }
+
+    .opcao-radio input:checked + label {
+      background: var(--rosa-suave);
+      border-color: var(--rosa-forte);
+      color: var(--rosa-forte);
+      box-shadow: 0 0 0 2px rgba(201, 123, 132, 0.25);
+    }
+
+    .campo-endereco {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 1px dashed transparent;
+      transition: max-height 0.35s ease, opacity 0.3s ease, margin 0.3s ease, padding 0.3s ease;
+    }
+
+    .campo-endereco.ativo {
+      max-height: 280px;
+      opacity: 1;
+      margin-top: 1.1rem;
+      padding-top: 1.1rem;
+      border-top-color: #e8d5d0;
+    }
+
+    .secao-bolo {
+      background: linear-gradient(135deg, #fdf6f0 0%, #f8e8e8 100%);
+      border-radius: 14px;
+      padding: 1.1rem;
+      border: 1px solid rgba(232, 180, 184, 0.4);
+    }
+
+    .secao-bolo h3 {
+      font-size: 0.95rem;
+      color: var(--rosa-forte);
+      margin-bottom: 0.9rem;
+      font-weight: 600;
+    }
+
+    .lista-itens {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .item-quantidade {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.7rem 0.4rem;
+      border-radius: 10px;
+    }
+
+    .item-nome {
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .controle-qtd {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .btn-qtd {
+      width: 36px;
+      height: 36px;
+      border: 1.5px solid #e8d5d0;
+      border-radius: 10px;
+      background: var(--branco);
+      color: var(--marrom);
+      font-size: 1.25rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transicao);
+      line-height: 1;
+      user-select: none;
+    }
+
+    .btn-qtd:hover {
+      background: var(--rosa-suave);
+      border-color: var(--rosa-medio);
+      color: var(--rosa-forte);
+    }
+
+    .controle-qtd input {
+      width: 48px;
+      text-align: center;
+      padding: 0.45rem 0.2rem;
+      font-weight: 600;
+      border-radius: 8px;
+      pointer-events: none;
+      background: var(--creme);
+    }
+
+    .opcoes-pagamento {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.65rem;
+    }
+
+    @media (max-width: 400px) {
+      .opcoes-pagamento { grid-template-columns: 1fr; }
+    }
+
+    .opcao-pag input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .opcao-pag label {
+      display: block;
+      text-align: center;
+      padding: 0.9rem 0.5rem;
+      background: var(--creme);
+      border: 1.5px solid #e8d5d0;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin: 0;
+      transition: all var(--transicao);
+      user-select: none;
+    }
+
+    .opcao-pag input:checked + label {
+      background: var(--rosa-suave);
+      border-color: var(--rosa-forte);
+      color: var(--rosa-forte);
+      box-shadow: 0 0 0 2px rgba(201, 123, 132, 0.2);
+    }
+
+    .btn-wrapper {
+      position: sticky;
+      bottom: 1rem;
+      z-index: 50;
+      margin-top: 0.5rem;
+    }
+
+    .btn-enviar {
+      width: 100%;
+      padding: 1.15rem 1.5rem;
+      background: linear-gradient(135deg, var(--rosa-forte) 0%, #b86a73 100%);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(201, 123, 132, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-enviar:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px rgba(201, 123, 132, 0.5);
+    }
+
+    .btn-enviar:disabled {
+      opacity: 0.75;
+      cursor: not-allowed;
+    }
+
+    .btn-loading { display: none; }
+    .btn-enviar.loading .btn-texto { display: none; }
+    .btn-enviar.loading .btn-loading { display: inline; }
+
+    .erro {
+      color: #c0392b;
+      font-size: 0.82rem;
+      margin-top: 0.35rem;
+      display: none;
+    }
+
+    .erro.visivel {
+      display: block;
+    }
+
+    input.invalid,
+    select.invalid,
+    textarea.invalid {
+      border-color: #c0392b !important;
+      box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.15) !important;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(120%);
+      background: var(--marrom);
+      color: white;
+      padding: 0.9rem 1.4rem;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      z-index: 200;
+      opacity: 0;
+      transition: transform 0.35s ease, opacity 0.35s ease;
+      max-width: 90%;
+      text-align: center;
+    }
+
+    .toast.visivel {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .toast.sucesso { background: #2d6a4f; }
+    .toast.erro { background: #c0392b; }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem 1rem 2rem;
+      font-size: 0.8rem;
+      color: #8a6f60;
+    }
+  </style>
 </head>
 <body>
 
@@ -26,22 +460,22 @@
 
     <form id="form-pedido" novalidate>
 
-      <!-- DADOS DO CLIENTE -->
+      <!-- Dados do Cliente -->
       <section class="card">
         <h2 class="card-title">Dados do Cliente</h2>
         <div class="campo">
           <label for="nome" class="required">Nome completo</label>
-          <input type="text" id="nome" name="nome" placeholder="Seu nome completo" required autocomplete="name">
+          <input type="text" id="nome" name="nome" placeholder="Seu nome completo" required>
           <span class="erro" id="erro-nome">Por favor, informe seu nome.</span>
         </div>
         <div class="campo">
           <label for="telefone" class="required">Telefone / WhatsApp</label>
-          <input type="tel" id="telefone" name="telefone" placeholder="(11) 99999-9999" required autocomplete="tel">
+          <input type="tel" id="telefone" name="telefone" placeholder="(11) 99999-9999" required>
           <span class="erro" id="erro-telefone">Informe um telefone válido com DDD.</span>
         </div>
       </section>
 
-      <!-- TIPO DE PEDIDO -->
+      <!-- Tipo de Pedido -->
       <section class="card">
         <h2 class="card-title">Tipo de Pedido</h2>
         <div class="opcoes-radio">
@@ -69,7 +503,7 @@
         </div>
       </section>
 
-      <!-- DATA E HORÁRIO -->
+      <!-- Data e Horário -->
       <section class="card">
         <h2 class="card-title">Data e Horário</h2>
         <div class="row">
@@ -86,7 +520,7 @@
         </div>
       </section>
 
-      <!-- BOLOS PERSONALIZADOS -->
+      <!-- Bolos -->
       <section class="card">
         <h2 class="card-title">Bolos Personalizados</h2>
         <p class="dica">Deixe em branco se não desejar bolo.</p>
@@ -149,87 +583,81 @@
         </div>
       </section>
 
-      <!-- DOCES / SALGADOS / OUTROS -->
+      <!-- Doces e Salgados -->
       <section class="card">
         <h2 class="card-title">Doces, Salgados e Outros</h2>
         <p class="dica">Use os botões + e − para ajustar a quantidade.</p>
 
         <div class="lista-itens">
-          <div class="item-quantidade" data-item="brigadeiro">
+          <div class="item-quantidade">
             <span class="item-nome">Brigadeiro tradicional</span>
             <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <button type="button" class="btn-qtd btn-menos">−</button>
               <input type="number" id="qtd-brigadeiro" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+              <button type="button" class="btn-qtd btn-mais">+</button>
             </div>
           </div>
-
-          <div class="item-quantidade" data-item="beijinho">
+          <div class="item-quantidade">
             <span class="item-nome">Beijinho</span>
             <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <button type="button" class="btn-qtd btn-menos">−</button>
               <input type="number" id="qtd-beijinho" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+              <button type="button" class="btn-qtd btn-mais">+</button>
             </div>
           </div>
-
-          <div class="item-quantidade" data-item="coxinha">
+          <div class="item-quantidade">
             <span class="item-nome">Coxinha de frango</span>
             <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <button type="button" class="btn-qtd btn-menos">−</button>
               <input type="number" id="qtd-coxinha" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+              <button type="button" class="btn-qtd btn-mais">+</button>
             </div>
           </div>
-
-          <div class="item-quantidade" data-item="empada">
+          <div class="item-quantidade">
             <span class="item-nome">Empada de frango</span>
             <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <button type="button" class="btn-qtd btn-menos">−</button>
               <input type="number" id="qtd-empada" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+              <button type="button" class="btn-qtd btn-mais">+</button>
             </div>
           </div>
-
-          <div class="item-quantidade" data-item="quiche">
+          <div class="item-quantidade">
             <span class="item-nome">Mini quiche</span>
             <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <button type="button" class="btn-qtd btn-menos">−</button>
               <input type="number" id="qtd-quiche" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+              <button type="button" class="btn-qtd btn-mais">+</button>
             </div>
           </div>
-
-          <div class="item-quantidade" data-item="bolo-pote">
+          <div class="item-quantidade">
             <span class="item-nome">Bolo de pote</span>
             <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <button type="button" class="btn-qtd btn-menos">−</button>
               <input type="number" id="qtd-bolo-pote" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+              <button type="button" class="btn-qtd btn-mais">+</button>
             </div>
           </div>
-
-          <div class="item-quantidade" data-item="torta">
+          <div class="item-quantidade">
             <span class="item-nome">Torta salgada (fatia)</span>
             <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <button type="button" class="btn-qtd btn-menos">−</button>
               <input type="number" id="qtd-torta" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+              <button type="button" class="btn-qtd btn-mais">+</button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- OBSERVAÇÕES -->
+      <!-- Observações -->
       <section class="card">
         <h2 class="card-title">Personalização / Observações</h2>
         <div class="campo">
           <label for="observacoes">Detalhes do pedido</label>
-          <textarea id="observacoes" name="observacoes" placeholder="Ex: nome e idade no bolo, restrições alimentares, topo personalizado, cor da decoração..."></textarea>
+          <textarea id="observacoes" name="observacoes" placeholder="Ex: nome e idade no bolo, restrições alimentares, topo personalizado..."></textarea>
         </div>
       </section>
 
-      <!-- FORMA DE PAGAMENTO -->
+      <!-- Pagamento -->
       <section class="card">
         <h2 class="card-title">Forma de Pagamento</h2>
         <div class="opcoes-pagamento">
@@ -248,24 +676,213 @@
         </div>
       </section>
 
-      <!-- BOTÃO ENVIAR -->
+      <!-- Botão -->
       <div class="btn-wrapper">
         <button type="submit" class="btn-enviar" id="btn-enviar">
           <span class="btn-texto">📲 Enviar Pedido pelo WhatsApp</span>
-          <span class="btn-loading" hidden>Enviando...</span>
+          <span class="btn-loading">Enviando...</span>
         </button>
       </div>
     </form>
   </main>
 
-  <footer>
-    Doce Encanto © Confeitaria Artesanal
-  </footer>
+  <footer>Doce Encanto © Confeitaria Artesanal</footer>
 
-  <!-- Toast de feedback -->
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="toast" class="toast"></div>
 
-  <script src="script.js"></script>
-<link rel="stylesheet" href="./styles.css">
+  <script>
+    // =====================================================
+    // ALTERE APENAS ESTE NÚMERO
+    // =====================================================
+    const NUMERO_WHATSAPP = "5592992933693";
+
+    const form = document.getElementById("form-pedido");
+    const campoEndereco = document.getElementById("campo-endereco");
+    const inputData = document.getElementById("data");
+    const btnEnviar = document.getElementById("btn-enviar");
+    const toast = document.getElementById("toast");
+
+    document.addEventListener("DOMContentLoaded", () => {
+      inputData.min = new Date().toISOString().split("T")[0];
+
+      document.querySelectorAll('input[name="tipo_pedido"]').forEach(radio => {
+        radio.addEventListener("change", atualizarCampoEndereco);
+      });
+      atualizarCampoEndereco();
+
+      document.querySelectorAll(".item-quantidade").forEach(item => {
+        const input = item.querySelector('input[type="number"]');
+        const btnMais = item.querySelector(".btn-mais");
+        const btnMenos = item.querySelector(".btn-menos");
+
+        btnMais.addEventListener("click", () => {
+          input.value = (parseInt(input.value) || 0) + 1;
+        });
+        btnMenos.addEventListener("click", () => {
+          let val = parseInt(input.value) || 0;
+          if (val > 0) input.value = val - 1;
+        });
+      });
+
+      form.addEventListener("submit", e => {
+        e.preventDefault();
+        if (validarFormulario()) {
+          enviarPedidoWhatsApp();
+        } else {
+          mostrarToast("Preencha os campos obrigatórios.", "erro");
+        }
+      });
+    });
+
+    function atualizarCampoEndereco() {
+      const selecionado = document.querySelector('input[name="tipo_pedido"]:checked');
+      if (selecionado && selecionado.value === "Entrega em domicílio") {
+        campoEndereco.classList.add("ativo");
+      } else {
+        campoEndereco.classList.remove("ativo");
+      }
+    }
+
+    function mostrarErro(inputId, erroId) {
+      document.getElementById(inputId)?.classList.add("invalid");
+      document.getElementById(erroId)?.classList.add("visivel");
+    }
+
+    function limparErros() {
+      document.querySelectorAll(".erro").forEach(el => el.classList.remove("visivel"));
+      document.querySelectorAll(".invalid").forEach(el => el.classList.remove("invalid"));
+    }
+
+    function mostrarToast(mensagem, tipo = "sucesso") {
+      toast.textContent = mensagem;
+      toast.className = `toast visivel ${tipo}`;
+      setTimeout(() => toast.classList.remove("visivel"), 3200);
+    }
+
+    function formatarData(dataISO) {
+      if (!dataISO) return "";
+      const [ano, mes, dia] = dataISO.split("-");
+      return `\( {dia}/ \){mes}/${ano}`;
+    }
+
+    function validarFormulario() {
+      limparErros();
+      let valido = true;
+
+      if (!document.getElementById("nome").value.trim()) {
+        mostrarErro("nome", "erro-nome");
+        valido = false;
+      }
+
+      const telefone = document.getElementById("telefone");
+      if (!telefone.value.trim() || telefone.value.replace(/\D/g, "").length < 10) {
+        mostrarErro("telefone", "erro-telefone");
+        valido = false;
+      }
+
+      const tipoPedido = document.querySelector('input[name="tipo_pedido"]:checked').value;
+      if (tipoPedido === "Entrega em domicílio") {
+        if (!document.getElementById("endereco").value.trim()) {
+          mostrarErro("endereco", "erro-endereco");
+          valido = false;
+        }
+        if (!document.getElementById("bairro").value.trim()) {
+          mostrarErro("bairro", "erro-bairro");
+          valido = false;
+        }
+      }
+
+      if (!inputData.value) {
+        mostrarErro("data", "erro-data");
+        valido = false;
+      }
+
+      if (!document.getElementById("horario").value) {
+        mostrarErro("horario", "erro-horario");
+        valido = false;
+      }
+
+      const temBolo = document.getElementById("bolo-tamanho").value !== "";
+      const quantidades = ["qtd-brigadeiro","qtd-beijinho","qtd-coxinha","qtd-empada","qtd-quiche","qtd-bolo-pote","qtd-torta"];
+      const temOutros = quantidades.some(id => (parseInt(document.getElementById(id).value) || 0) > 0);
+
+      if (!temBolo && !temOutros) {
+        mostrarToast("Selecione pelo menos um produto.", "erro");
+        valido = false;
+      }
+
+      if (!valido) {
+        const primeiro = document.querySelector(".invalid");
+        if (primeiro) primeiro.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      return valido;
+    }
+
+    function enviarPedidoWhatsApp() {
+      btnEnviar.classList.add("loading");
+      btnEnviar.disabled = true;
+
+      const nome = document.getElementById("nome").value.trim();
+      const telefoneCliente = document.getElementById("telefone").value.trim();
+      const tipoPedido = document.querySelector('input[name="tipo_pedido"]:checked').value;
+      const data = formatarData(document.getElementById("data").value);
+      const horario = document.getElementById("horario").value;
+      const pagamento = document.querySelector('input[name="pagamento"]:checked').value;
+      const observacoes = document.getElementById("observacoes").value.trim() || "Nenhuma";
+
+      let enderecoTexto = "";
+      if (tipoPedido === "Entrega em domicílio") {
+        enderecoTexto = `${document.getElementById("endereco").value.trim()} – ${document.getElementById("bairro").value.trim()}`;
+      }
+
+      const itens = [];
+
+      const tamanho = document.getElementById("bolo-tamanho").value;
+      if (tamanho) {
+        const massa = document.getElementById("bolo-massa").value || "Não informado";
+        const recheio1 = document.getElementById("bolo-recheio1").value || "Não informado";
+        const recheio2 = document.getElementById("bolo-recheio2").value;
+        let recheios = recheio1;
+        if (recheio2) recheios += ` + ${recheio2}`;
+        itens.push(`- 1x Bolo Personalizado (${tamanho}) | Massa: ${massa} | Recheio: ${recheios}`);
+      }
+
+      const listaItens = [
+        { id: "qtd-brigadeiro", nome: "Brigadeiro tradicional" },
+        { id: "qtd-beijinho", nome: "Beijinho" },
+        { id: "qtd-coxinha", nome: "Coxinha de frango" },
+        { id: "qtd-empada", nome: "Empada de frango" },
+        { id: "qtd-quiche", nome: "Mini quiche" },
+        { id: "qtd-bolo-pote", nome: "Bolo de pote" },
+        { id: "qtd-torta", nome: "Torta salgada (fatia)" }
+      ];
+
+      listaItens.forEach(item => {
+        const qtd = parseInt(document.getElementById(item.id).value) || 0;
+        if (qtd > 0) itens.push(`- ${qtd}x ${item.nome}`);
+      });
+
+      let mensagem = `🍰 *NOVO PEDIDO DE CONFEITARIA*\n\n`;
+      mensagem += `👤 *Cliente:* ${nome}\n`;
+      mensagem += `📱 *Telefone:* ${telefoneCliente}\n`;
+      mensagem += `📅 *Data/Hora:* ${data} às ${horario}\n`;
+      mensagem += `🚗 *Entrega/Retirada:* ${tipoPedido}\n`;
+      if (enderecoTexto) mensagem += `📍 *Endereço:* ${enderecoTexto}\n`;
+      mensagem += `\n📋 *ITENS DO PEDIDO:*\n`;
+      mensagem += itens.join("\n");
+      mensagem += `\n\n✍️ *Observações:* ${observacoes}\n`;
+      mensagem += `💳 *Pagamento:* ${pagamento}`;
+
+      const url = `https://wa.me/\( {NUMERO_WHATSAPP}?text= \){encodeURIComponent(mensagem)}`;
+
+      setTimeout(() => {
+        window.open(url, "_blank");
+        btnEnviar.classList.remove("loading");
+        btnEnviar.disabled = false;
+        mostrarToast("Pedido aberto no WhatsApp! 🎉", "sucesso");
+      }, 500);
+    }
+  </script>
 </body>
 </html>
