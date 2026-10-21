@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doce Encanto – Confeitaria Artesanal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      Doce Encanto
+      <span>Confeitaria Artesanal</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="intro">
+      <h1>Monte seu pedido</h1>
+      <p>Preencha os dados abaixo e envie diretamente pelo WhatsApp</p>
+    </div>
+
+    <form id="form-pedido" novalidate>
+
+      <!-- DADOS DO CLIENTE -->
+      <section class="card">
+        <h2 class="card-title">Dados do Cliente</h2>
+        <div class="campo">
+          <label for="nome" class="required">Nome completo</label>
+          <input type="text" id="nome" name="nome" placeholder="Seu nome completo" required autocomplete="name">
+          <span class="erro" id="erro-nome">Por favor, informe seu nome.</span>
+        </div>
+        <div class="campo">
+          <label for="telefone" class="required">Telefone / WhatsApp</label>
+          <input type="tel" id="telefone" name="telefone" placeholder="(11) 99999-9999" required autocomplete="tel">
+          <span class="erro" id="erro-telefone">Informe um telefone válido com DDD.</span>
+        </div>
+      </section>
+
+      <!-- TIPO DE PEDIDO -->
+      <section class="card">
+        <h2 class="card-title">Tipo de Pedido</h2>
+        <div class="opcoes-radio">
+          <div class="opcao-radio">
+            <input type="radio" id="retirada" name="tipo_pedido" value="Retirada no local" checked>
+            <label for="retirada">🏠 Retirada</label>
+          </div>
+          <div class="opcao-radio">
+            <input type="radio" id="entrega" name="tipo_pedido" value="Entrega em domicílio">
+            <label for="entrega">🚗 Entrega</label>
+          </div>
+        </div>
+
+        <div id="campo-endereco" class="campo-endereco">
+          <div class="campo">
+            <label for="endereco" class="required">Endereço completo</label>
+            <input type="text" id="endereco" name="endereco" placeholder="Rua, número, complemento">
+            <span class="erro" id="erro-endereco">Informe o endereço completo.</span>
+          </div>
+          <div class="campo">
+            <label for="bairro" class="required">Bairro</label>
+            <input type="text" id="bairro" name="bairro" placeholder="Bairro">
+            <span class="erro" id="erro-bairro">Informe o bairro.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- DATA E HORÁRIO -->
+      <section class="card">
+        <h2 class="card-title">Data e Horário</h2>
+        <div class="row">
+          <div class="campo">
+            <label for="data" class="required">Data</label>
+            <input type="date" id="data" name="data" required>
+            <span class="erro" id="erro-data">Selecione a data.</span>
+          </div>
+          <div class="campo">
+            <label for="horario" class="required">Horário</label>
+            <input type="time" id="horario" name="horario" required>
+            <span class="erro" id="erro-horario">Selecione o horário.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- BOLOS PERSONALIZADOS -->
+      <section class="card">
+        <h2 class="card-title">Bolos Personalizados</h2>
+        <p class="dica">Deixe em branco se não desejar bolo.</p>
+
+        <div class="secao-bolo">
+          <h3>🍰 Configuração do Bolo</h3>
+          <div class="campo">
+            <label for="bolo-tamanho">Tamanho / Aro</label>
+            <select id="bolo-tamanho" name="bolo-tamanho">
+              <option value="">Selecione o tamanho</option>
+              <option value="15 cm (aprox. 10 fatias)">15 cm (≈ 10 fatias)</option>
+              <option value="20 cm (aprox. 15 fatias)">20 cm (≈ 15 fatias)</option>
+              <option value="25 cm (aprox. 25 fatias)">25 cm (≈ 25 fatias)</option>
+              <option value="30 cm (aprox. 40 fatias)">30 cm (≈ 40 fatias)</option>
+              <option value="Bolo de andares (consultar)">Bolo de andares (consultar)</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="bolo-massa">Tipo de Massa</label>
+            <select id="bolo-massa" name="bolo-massa">
+              <option value="">Selecione a massa</option>
+              <option value="Baunilha">Baunilha</option>
+              <option value="Chocolate">Chocolate</option>
+              <option value="Red Velvet">Red Velvet</option>
+              <option value="Cenoura">Cenoura</option>
+              <option value="Coco">Coco</option>
+              <option value="Limão">Limão</option>
+            </select>
+          </div>
+          <div class="row">
+            <div class="campo">
+              <label for="bolo-recheio1">Recheio 1</label>
+              <select id="bolo-recheio1" name="bolo-recheio1">
+                <option value="">Selecione</option>
+                <option value="Brigadeiro">Brigadeiro</option>
+                <option value="Doce de leite">Doce de leite</option>
+                <option value="Ninho">Ninho</option>
+                <option value="Chocolate belga">Chocolate belga</option>
+                <option value="Morango">Morango</option>
+                <option value="Prestígio">Prestígio</option>
+                <option value="Ganache">Ganache</option>
+                <option value="Beijinho">Beijinho</option>
+              </select>
+            </div>
+            <div class="campo">
+              <label for="bolo-recheio2">Recheio 2 (opcional)</label>
+              <select id="bolo-recheio2" name="bolo-recheio2">
+                <option value="">Nenhum</option>
+                <option value="Brigadeiro">Brigadeiro</option>
+                <option value="Doce de leite">Doce de leite</option>
+                <option value="Ninho">Ninho</option>
+                <option value="Chocolate belga">Chocolate belga</option>
+                <option value="Morango">Morango</option>
+                <option value="Prestígio">Prestígio</option>
+                <option value="Ganache">Ganache</option>
+                <option value="Beijinho">Beijinho</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DOCES / SALGADOS / OUTROS -->
+      <section class="card">
+        <h2 class="card-title">Doces, Salgados e Outros</h2>
+        <p class="dica">Use os botões + e − para ajustar a quantidade.</p>
+
+        <div class="lista-itens">
+          <div class="item-quantidade" data-item="brigadeiro">
+            <span class="item-nome">Brigadeiro tradicional</span>
+            <div class="controle-qtd">
+              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <input type="number" id="qtd-brigadeiro" min="0" value="0" readonly>
+              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+            </div>
+          </div>
+
+          <div class="item-quantidade" data-item="beijinho">
+            <span class="item-nome">Beijinho</span>
+            <div class="controle-qtd">
+              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <input type="number" id="qtd-beijinho" min="0" value="0" readonly>
+              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+            </div>
+          </div>
+
+          <div class="item-quantidade" data-item="coxinha">
+            <span class="item-nome">Coxinha de frango</span>
+            <div class="controle-qtd">
+              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <input type="number" id="qtd-coxinha" min="0" value="0" readonly>
+              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+            </div>
+          </div>
+
+          <div class="item-quantidade" data-item="empada">
+            <span class="item-nome">Empada de frango</span>
+            <div class="controle-qtd">
+              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <input type="number" id="qtd-empada" min="0" value="0" readonly>
+              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+            </div>
+          </div>
+
+          <div class="item-quantidade" data-item="quiche">
+            <span class="item-nome">Mini quiche</span>
+            <div class="controle-qtd">
+              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <input type="number" id="qtd-quiche" min="0" value="0" readonly>
+              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+            </div>
+          </div>
+
+          <div class="item-quantidade" data-item="bolo-pote">
+            <span class="item-nome">Bolo de pote</span>
+            <div class="controle-qtd">
+              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <input type="number" id="qtd-bolo-pote" min="0" value="0" readonly>
+              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+            </div>
+          </div>
+
+          <div class="item-quantidade" data-item="torta">
+            <span class="item-nome">Torta salgada (fatia)</span>
+            <div class="controle-qtd">
+              <button type="button" class="btn-qtd btn-menos" aria-label="Diminuir">−</button>
+              <input type="number" id="qtd-torta" min="0" value="0" readonly>
+              <button type="button" class="btn-qtd btn-mais" aria-label="Aumentar">+</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- OBSERVAÇÕES -->
+      <section class="card">
+        <h2 class="card-title">Personalização / Observações</h2>
+        <div class="campo">
+          <label for="observacoes">Detalhes do pedido</label>
+          <textarea id="observacoes" name="observacoes" placeholder="Ex: nome e idade no bolo, restrições alimentares, topo personalizado, cor da decoração..."></textarea>
+        </div>
+      </section>
+
+      <!-- FORMA DE PAGAMENTO -->
+      <section class="card">
+        <h2 class="card-title">Forma de Pagamento</h2>
+        <div class="opcoes-pagamento">
+          <div class="opcao-pag">
+            <input type="radio" id="pix" name="pagamento" value="PIX" checked>
+            <label for="pix">PIX</label>
+          </div>
+          <div class="opcao-pag">
+            <input type="radio" id="cartao" name="pagamento" value="Cartão de Crédito/Débito">
+            <label for="cartao">Cartão</label>
+          </div>
+          <div class="opcao-pag">
+            <input type="radio" id="dinheiro" name="pagamento" value="Dinheiro">
+            <label for="dinheiro">Dinheiro</label>
+          </div>
+        </div>
+      </section>
+
+      <!-- BOTÃO ENVIAR -->
+      <div class="btn-wrapper">
+        <button type="submit" class="btn-enviar" id="btn-enviar">
+          <span class="btn-texto">📲 Enviar Pedido pelo WhatsApp</span>
+          <span class="btn-loading" hidden>Enviando...</span>
+        </button>
+      </div>
+    </form>
+  </main>
+
+  <footer>
+    Doce Encanto © Confeitaria Artesanal
+  </footer>
+
+  <!-- Toast de feedback -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
