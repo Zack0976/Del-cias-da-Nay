@@ -100,7 +100,7 @@ function mostrarToast(mensagem, tipo = "sucesso") {
 function formatarData(dataISO) {
   if (!dataISO) return "";
   const [ano, mes, dia] = dataISO.split("-");
-  return `\( {dia}/ \){mes}/${ano}`;
+  return `${dia}/${mes}/${ano}`;
 }
 
 // ============================================================
@@ -258,7 +258,7 @@ function enviarPedidoWhatsApp() {
   mensagem += `💳 *Pagamento:* ${pagamento}`;
 
   // Abre o WhatsApp
-  const url = `https://wa.me/\( {NUMERO_WHATSAPP}?text= \){encodeURIComponent(mensagem)}`;
+  const url = `https://wa.me/${NUMERO_WHATSAPP}?text=${encodeURIComponent(mensagem)}`;
 
   // Pequeno delay para feedback visual
   setTimeout(() => {

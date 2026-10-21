@@ -369,71 +369,21 @@
       font-family: inherit;
       cursor: pointer;
       box-shadow: 0 6px 20px rgba(201, 123, 132, 0.4);
-      transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
     }
 
-    .btn-enviar:hover:not(:disabled) {
+    .btn-enviar:hover {
       transform: translateY(-2px);
       box-shadow: 0 10px 28px rgba(201, 123, 132, 0.5);
     }
 
-    .btn-enviar:disabled {
-      opacity: 0.75;
-      cursor: not-allowed;
+    .btn-enviar:active {
+      transform: translateY(0);
     }
-
-    .btn-loading { display: none; }
-    .btn-enviar.loading .btn-texto { display: none; }
-    .btn-enviar.loading .btn-loading { display: inline; }
-
-    .erro {
-      color: #c0392b;
-      font-size: 0.82rem;
-      margin-top: 0.35rem;
-      display: none;
-    }
-
-    .erro.visivel {
-      display: block;
-    }
-
-    input.invalid,
-    select.invalid,
-    textarea.invalid {
-      border-color: #c0392b !important;
-      box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.15) !important;
-    }
-
-    .toast {
-      position: fixed;
-      bottom: 1.5rem;
-      left: 50%;
-      transform: translateX(-50%) translateY(120%);
-      background: var(--marrom);
-      color: white;
-      padding: 0.9rem 1.4rem;
-      border-radius: 12px;
-      font-size: 0.95rem;
-      font-weight: 500;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-      z-index: 200;
-      opacity: 0;
-      transition: transform 0.35s ease, opacity 0.35s ease;
-      max-width: 90%;
-      text-align: center;
-    }
-
-    .toast.visivel {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
-    }
-
-    .toast.sucesso { background: #2d6a4f; }
-    .toast.erro { background: #c0392b; }
 
     footer {
       text-align: center;
@@ -458,384 +408,317 @@
       <p>Preencha os dados abaixo e envie diretamente pelo WhatsApp</p>
     </div>
 
-    <form id="form-pedido" novalidate>
+    <!-- Dados do Cliente -->
+    <section class="card">
+      <h2 class="card-title">Dados do Cliente</h2>
+      <div class="campo">
+        <label for="nome" class="required">Nome completo</label>
+        <input type="text" id="nome" placeholder="Seu nome completo">
+      </div>
+      <div class="campo">
+        <label for="telefone" class="required">Telefone / WhatsApp</label>
+        <input type="tel" id="telefone" placeholder="(11) 99999-9999">
+      </div>
+    </section>
 
-      <!-- Dados do Cliente -->
-      <section class="card">
-        <h2 class="card-title">Dados do Cliente</h2>
+    <!-- Tipo de Pedido -->
+    <section class="card">
+      <h2 class="card-title">Tipo de Pedido</h2>
+      <div class="opcoes-radio">
+        <div class="opcao-radio">
+          <input type="radio" id="retirada" name="tipo_pedido" value="Retirada no local" checked onchange="atualizarEndereco()">
+          <label for="retirada">🏠 Retirada</label>
+        </div>
+        <div class="opcao-radio">
+          <input type="radio" id="entrega" name="tipo_pedido" value="Entrega em domicílio" onchange="atualizarEndereco()">
+          <label for="entrega">🚗 Entrega</label>
+        </div>
+      </div>
+
+      <div id="campo-endereco" class="campo-endereco">
         <div class="campo">
-          <label for="nome" class="required">Nome completo</label>
-          <input type="text" id="nome" name="nome" placeholder="Seu nome completo" required>
-          <span class="erro" id="erro-nome">Por favor, informe seu nome.</span>
+          <label for="endereco" class="required">Endereço completo</label>
+          <input type="text" id="endereco" placeholder="Rua, número, complemento">
         </div>
         <div class="campo">
-          <label for="telefone" class="required">Telefone / WhatsApp</label>
-          <input type="tel" id="telefone" name="telefone" placeholder="(11) 99999-9999" required>
-          <span class="erro" id="erro-telefone">Informe um telefone válido com DDD.</span>
+          <label for="bairro" class="required">Bairro</label>
+          <input type="text" id="bairro" placeholder="Bairro">
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- Tipo de Pedido -->
-      <section class="card">
-        <h2 class="card-title">Tipo de Pedido</h2>
-        <div class="opcoes-radio">
-          <div class="opcao-radio">
-            <input type="radio" id="retirada" name="tipo_pedido" value="Retirada no local" checked>
-            <label for="retirada">🏠 Retirada</label>
-          </div>
-          <div class="opcao-radio">
-            <input type="radio" id="entrega" name="tipo_pedido" value="Entrega em domicílio">
-            <label for="entrega">🚗 Entrega</label>
-          </div>
+    <!-- Data e Horário -->
+    <section class="card">
+      <h2 class="card-title">Data e Horário</h2>
+      <div class="row">
+        <div class="campo">
+          <label for="data" class="required">Data</label>
+          <input type="date" id="data">
         </div>
-
-        <div id="campo-endereco" class="campo-endereco">
-          <div class="campo">
-            <label for="endereco" class="required">Endereço completo</label>
-            <input type="text" id="endereco" name="endereco" placeholder="Rua, número, complemento">
-            <span class="erro" id="erro-endereco">Informe o endereço completo.</span>
-          </div>
-          <div class="campo">
-            <label for="bairro" class="required">Bairro</label>
-            <input type="text" id="bairro" name="bairro" placeholder="Bairro">
-            <span class="erro" id="erro-bairro">Informe o bairro.</span>
-          </div>
+        <div class="campo">
+          <label for="horario" class="required">Horário</label>
+          <input type="time" id="horario">
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- Data e Horário -->
-      <section class="card">
-        <h2 class="card-title">Data e Horário</h2>
+    <!-- Bolos -->
+    <section class="card">
+      <h2 class="card-title">Bolos Personalizados</h2>
+      <p class="dica">Deixe em branco se não desejar bolo.</p>
+
+      <div class="secao-bolo">
+        <h3>🍰 Configuração do Bolo</h3>
+        <div class="campo">
+          <label for="bolo-tamanho">Tamanho / Aro</label>
+          <select id="bolo-tamanho">
+            <option value="">Selecione o tamanho</option>
+            <option value="15 cm (aprox. 10 fatias)">15 cm (≈ 10 fatias)</option>
+            <option value="20 cm (aprox. 15 fatias)">20 cm (≈ 15 fatias)</option>
+            <option value="25 cm (aprox. 25 fatias)">25 cm (≈ 25 fatias)</option>
+            <option value="30 cm (aprox. 40 fatias)">30 cm (≈ 40 fatias)</option>
+            <option value="Bolo de andares (consultar)">Bolo de andares (consultar)</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="bolo-massa">Tipo de Massa</label>
+          <select id="bolo-massa">
+            <option value="">Selecione a massa</option>
+            <option value="Baunilha">Baunilha</option>
+            <option value="Chocolate">Chocolate</option>
+            <option value="Red Velvet">Red Velvet</option>
+            <option value="Cenoura">Cenoura</option>
+            <option value="Coco">Coco</option>
+            <option value="Limão">Limão</option>
+          </select>
+        </div>
         <div class="row">
           <div class="campo">
-            <label for="data" class="required">Data</label>
-            <input type="date" id="data" name="data" required>
-            <span class="erro" id="erro-data">Selecione a data.</span>
-          </div>
-          <div class="campo">
-            <label for="horario" class="required">Horário</label>
-            <input type="time" id="horario" name="horario" required>
-            <span class="erro" id="erro-horario">Selecione o horário.</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Bolos -->
-      <section class="card">
-        <h2 class="card-title">Bolos Personalizados</h2>
-        <p class="dica">Deixe em branco se não desejar bolo.</p>
-
-        <div class="secao-bolo">
-          <h3>🍰 Configuração do Bolo</h3>
-          <div class="campo">
-            <label for="bolo-tamanho">Tamanho / Aro</label>
-            <select id="bolo-tamanho" name="bolo-tamanho">
-              <option value="">Selecione o tamanho</option>
-              <option value="15 cm (aprox. 10 fatias)">15 cm (≈ 10 fatias)</option>
-              <option value="20 cm (aprox. 15 fatias)">20 cm (≈ 15 fatias)</option>
-              <option value="25 cm (aprox. 25 fatias)">25 cm (≈ 25 fatias)</option>
-              <option value="30 cm (aprox. 40 fatias)">30 cm (≈ 40 fatias)</option>
-              <option value="Bolo de andares (consultar)">Bolo de andares (consultar)</option>
+            <label for="bolo-recheio1">Recheio 1</label>
+            <select id="bolo-recheio1">
+              <option value="">Selecione</option>
+              <option value="Brigadeiro">Brigadeiro</option>
+              <option value="Doce de leite">Doce de leite</option>
+              <option value="Ninho">Ninho</option>
+              <option value="Chocolate belga">Chocolate belga</option>
+              <option value="Morango">Morango</option>
+              <option value="Prestígio">Prestígio</option>
+              <option value="Ganache">Ganache</option>
+              <option value="Beijinho">Beijinho</option>
             </select>
           </div>
           <div class="campo">
-            <label for="bolo-massa">Tipo de Massa</label>
-            <select id="bolo-massa" name="bolo-massa">
-              <option value="">Selecione a massa</option>
-              <option value="Baunilha">Baunilha</option>
-              <option value="Chocolate">Chocolate</option>
-              <option value="Red Velvet">Red Velvet</option>
-              <option value="Cenoura">Cenoura</option>
-              <option value="Coco">Coco</option>
-              <option value="Limão">Limão</option>
+            <label for="bolo-recheio2">Recheio 2 (opcional)</label>
+            <select id="bolo-recheio2">
+              <option value="">Nenhum</option>
+              <option value="Brigadeiro">Brigadeiro</option>
+              <option value="Doce de leite">Doce de leite</option>
+              <option value="Ninho">Ninho</option>
+              <option value="Chocolate belga">Chocolate belga</option>
+              <option value="Morango">Morango</option>
+              <option value="Prestígio">Prestígio</option>
+              <option value="Ganache">Ganache</option>
+              <option value="Beijinho">Beijinho</option>
             </select>
           </div>
-          <div class="row">
-            <div class="campo">
-              <label for="bolo-recheio1">Recheio 1</label>
-              <select id="bolo-recheio1" name="bolo-recheio1">
-                <option value="">Selecione</option>
-                <option value="Brigadeiro">Brigadeiro</option>
-                <option value="Doce de leite">Doce de leite</option>
-                <option value="Ninho">Ninho</option>
-                <option value="Chocolate belga">Chocolate belga</option>
-                <option value="Morango">Morango</option>
-                <option value="Prestígio">Prestígio</option>
-                <option value="Ganache">Ganache</option>
-                <option value="Beijinho">Beijinho</option>
-              </select>
-            </div>
-            <div class="campo">
-              <label for="bolo-recheio2">Recheio 2 (opcional)</label>
-              <select id="bolo-recheio2" name="bolo-recheio2">
-                <option value="">Nenhum</option>
-                <option value="Brigadeiro">Brigadeiro</option>
-                <option value="Doce de leite">Doce de leite</option>
-                <option value="Ninho">Ninho</option>
-                <option value="Chocolate belga">Chocolate belga</option>
-                <option value="Morango">Morango</option>
-                <option value="Prestígio">Prestígio</option>
-                <option value="Ganache">Ganache</option>
-                <option value="Beijinho">Beijinho</option>
-              </select>
-            </div>
-          </div>
         </div>
-      </section>
-
-      <!-- Doces e Salgados -->
-      <section class="card">
-        <h2 class="card-title">Doces, Salgados e Outros</h2>
-        <p class="dica">Use os botões + e − para ajustar a quantidade.</p>
-
-        <div class="lista-itens">
-          <div class="item-quantidade">
-            <span class="item-nome">Brigadeiro tradicional</span>
-            <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos">−</button>
-              <input type="number" id="qtd-brigadeiro" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais">+</button>
-            </div>
-          </div>
-          <div class="item-quantidade">
-            <span class="item-nome">Beijinho</span>
-            <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos">−</button>
-              <input type="number" id="qtd-beijinho" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais">+</button>
-            </div>
-          </div>
-          <div class="item-quantidade">
-            <span class="item-nome">Coxinha de frango</span>
-            <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos">−</button>
-              <input type="number" id="qtd-coxinha" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais">+</button>
-            </div>
-          </div>
-          <div class="item-quantidade">
-            <span class="item-nome">Empada de frango</span>
-            <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos">−</button>
-              <input type="number" id="qtd-empada" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais">+</button>
-            </div>
-          </div>
-          <div class="item-quantidade">
-            <span class="item-nome">Mini quiche</span>
-            <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos">−</button>
-              <input type="number" id="qtd-quiche" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais">+</button>
-            </div>
-          </div>
-          <div class="item-quantidade">
-            <span class="item-nome">Bolo de pote</span>
-            <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos">−</button>
-              <input type="number" id="qtd-bolo-pote" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais">+</button>
-            </div>
-          </div>
-          <div class="item-quantidade">
-            <span class="item-nome">Torta salgada (fatia)</span>
-            <div class="controle-qtd">
-              <button type="button" class="btn-qtd btn-menos">−</button>
-              <input type="number" id="qtd-torta" min="0" value="0" readonly>
-              <button type="button" class="btn-qtd btn-mais">+</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Observações -->
-      <section class="card">
-        <h2 class="card-title">Personalização / Observações</h2>
-        <div class="campo">
-          <label for="observacoes">Detalhes do pedido</label>
-          <textarea id="observacoes" name="observacoes" placeholder="Ex: nome e idade no bolo, restrições alimentares, topo personalizado..."></textarea>
-        </div>
-      </section>
-
-      <!-- Pagamento -->
-      <section class="card">
-        <h2 class="card-title">Forma de Pagamento</h2>
-        <div class="opcoes-pagamento">
-          <div class="opcao-pag">
-            <input type="radio" id="pix" name="pagamento" value="PIX" checked>
-            <label for="pix">PIX</label>
-          </div>
-          <div class="opcao-pag">
-            <input type="radio" id="cartao" name="pagamento" value="Cartão de Crédito/Débito">
-            <label for="cartao">Cartão</label>
-          </div>
-          <div class="opcao-pag">
-            <input type="radio" id="dinheiro" name="pagamento" value="Dinheiro">
-            <label for="dinheiro">Dinheiro</label>
-          </div>
-        </div>
-      </section>
-
-      <!-- Botão -->
-      <div class="btn-wrapper">
-        <button type="submit" class="btn-enviar" id="btn-enviar">
-          <span class="btn-texto">📲 Enviar Pedido pelo WhatsApp</span>
-          <span class="btn-loading">Enviando...</span>
-        </button>
       </div>
-    </form>
+    </section>
+
+    <!-- Doces e Salgados -->
+    <section class="card">
+      <h2 class="card-title">Doces, Salgados e Outros</h2>
+      <p class="dica">Use os botões + e − para ajustar a quantidade.</p>
+
+      <div class="lista-itens">
+        <div class="item-quantidade">
+          <span class="item-nome">Brigadeiro tradicional</span>
+          <div class="controle-qtd">
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-brigadeiro', -1)">−</button>
+            <input type="number" id="qtd-brigadeiro" min="0" value="0" readonly>
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-brigadeiro', 1)">+</button>
+          </div>
+        </div>
+        <div class="item-quantidade">
+          <span class="item-nome">Beijinho</span>
+          <div class="controle-qtd">
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-beijinho', -1)">−</button>
+            <input type="number" id="qtd-beijinho" min="0" value="0" readonly>
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-beijinho', 1)">+</button>
+          </div>
+        </div>
+        <div class="item-quantidade">
+          <span class="item-nome">Coxinha de frango</span>
+          <div class="controle-qtd">
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-coxinha', -1)">−</button>
+            <input type="number" id="qtd-coxinha" min="0" value="0" readonly>
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-coxinha', 1)">+</button>
+          </div>
+        </div>
+        <div class="item-quantidade">
+          <span class="item-nome">Empada de frango</span>
+          <div class="controle-qtd">
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-empada', -1)">−</button>
+            <input type="number" id="qtd-empada" min="0" value="0" readonly>
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-empada', 1)">+</button>
+          </div>
+        </div>
+        <div class="item-quantidade">
+          <span class="item-nome">Mini quiche</span>
+          <div class="controle-qtd">
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-quiche', -1)">−</button>
+            <input type="number" id="qtd-quiche" min="0" value="0" readonly>
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-quiche', 1)">+</button>
+          </div>
+        </div>
+        <div class="item-quantidade">
+          <span class="item-nome">Bolo de pote</span>
+          <div class="controle-qtd">
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-bolo-pote', -1)">−</button>
+            <input type="number" id="qtd-bolo-pote" min="0" value="0" readonly>
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-bolo-pote', 1)">+</button>
+          </div>
+        </div>
+        <div class="item-quantidade">
+          <span class="item-nome">Torta salgada (fatia)</span>
+          <div class="controle-qtd">
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-torta', -1)">−</button>
+            <input type="number" id="qtd-torta" min="0" value="0" readonly>
+            <button type="button" class="btn-qtd" onclick="alterarQtd('qtd-torta', 1)">+</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Observações -->
+    <section class="card">
+      <h2 class="card-title">Personalização / Observações</h2>
+      <div class="campo">
+        <label for="observacoes">Detalhes do pedido</label>
+        <textarea id="observacoes" placeholder="Ex: nome e idade no bolo, restrições alimentares, topo personalizado..."></textarea>
+      </div>
+    </section>
+
+    <!-- Pagamento -->
+    <section class="card">
+      <h2 class="card-title">Forma de Pagamento</h2>
+      <div class="opcoes-pagamento">
+        <div class="opcao-pag">
+          <input type="radio" id="pix" name="pagamento" value="PIX" checked>
+          <label for="pix">PIX</label>
+        </div>
+        <div class="opcao-pag">
+          <input type="radio" id="cartao" name="pagamento" value="Cartão de Crédito/Débito">
+          <label for="cartao">Cartão</label>
+        </div>
+        <div class="opcao-pag">
+          <input type="radio" id="dinheiro" name="pagamento" value="Dinheiro">
+          <label for="dinheiro">Dinheiro</label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Botão de Enviar -->
+    <div class="btn-wrapper">
+      <button type="button" class="btn-enviar" onclick="enviarPedidoWhatsApp()">
+        📲 Enviar Pedido pelo WhatsApp
+      </button>
+    </div>
   </main>
 
   <footer>Doce Encanto © Confeitaria Artesanal</footer>
 
-  <div id="toast" class="toast"></div>
-
   <script>
     // =====================================================
-    // ALTERE APENAS ESTE NÚMERO
+    // ALTERE APENAS ESTE NÚMERO (55 + DDD + número)
     // =====================================================
     const NUMERO_WHATSAPP = "5592992933693";
 
-    const form = document.getElementById("form-pedido");
-    const campoEndereco = document.getElementById("campo-endereco");
-    const inputData = document.getElementById("data");
-    const btnEnviar = document.getElementById("btn-enviar");
-    const toast = document.getElementById("toast");
+    // Data mínima = hoje (no fuso local, não em UTC)
+    (function () {
+      const hoje = new Date();
+      const ano = hoje.getFullYear();
+      const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+      const dia = String(hoje.getDate()).padStart(2, "0");
+      document.getElementById("data").min = `${ano}-${mes}-${dia}`;
+    })();
 
-    document.addEventListener("DOMContentLoaded", () => {
-      inputData.min = new Date().toISOString().split("T")[0];
-
-      document.querySelectorAll('input[name="tipo_pedido"]').forEach(radio => {
-        radio.addEventListener("change", atualizarCampoEndereco);
-      });
-      atualizarCampoEndereco();
-
-      document.querySelectorAll(".item-quantidade").forEach(item => {
-        const input = item.querySelector('input[type="number"]');
-        const btnMais = item.querySelector(".btn-mais");
-        const btnMenos = item.querySelector(".btn-menos");
-
-        btnMais.addEventListener("click", () => {
-          input.value = (parseInt(input.value) || 0) + 1;
-        });
-        btnMenos.addEventListener("click", () => {
-          let val = parseInt(input.value) || 0;
-          if (val > 0) input.value = val - 1;
-        });
-      });
-
-      form.addEventListener("submit", e => {
-        e.preventDefault();
-        if (validarFormulario()) {
-          enviarPedidoWhatsApp();
-        } else {
-          mostrarToast("Preencha os campos obrigatórios.", "erro");
-        }
-      });
-    });
-
-    function atualizarCampoEndereco() {
-      const selecionado = document.querySelector('input[name="tipo_pedido"]:checked');
-      if (selecionado && selecionado.value === "Entrega em domicílio") {
-        campoEndereco.classList.add("ativo");
+    // Mostrar / esconder endereço
+    function atualizarEndereco() {
+      const tipo = document.querySelector('input[name="tipo_pedido"]:checked').value;
+      const campo = document.getElementById("campo-endereco");
+      if (tipo === "Entrega em domicílio") {
+        campo.classList.add("ativo");
       } else {
-        campoEndereco.classList.remove("ativo");
+        campo.classList.remove("ativo");
       }
     }
 
-    function mostrarErro(inputId, erroId) {
-      document.getElementById(inputId)?.classList.add("invalid");
-      document.getElementById(erroId)?.classList.add("visivel");
+    // Botões + e −
+    function alterarQtd(id, delta) {
+      const input = document.getElementById(id);
+      let valor = parseInt(input.value) || 0;
+      valor += delta;
+      if (valor < 0) valor = 0;
+      input.value = valor;
     }
 
-    function limparErros() {
-      document.querySelectorAll(".erro").forEach(el => el.classList.remove("visivel"));
-      document.querySelectorAll(".invalid").forEach(el => el.classList.remove("invalid"));
-    }
-
-    function mostrarToast(mensagem, tipo = "sucesso") {
-      toast.textContent = mensagem;
-      toast.className = `toast visivel ${tipo}`;
-      setTimeout(() => toast.classList.remove("visivel"), 3200);
-    }
-
+    // Formata data AAAA-MM-DD -> DD/MM/AAAA
     function formatarData(dataISO) {
       if (!dataISO) return "";
       const [ano, mes, dia] = dataISO.split("-");
-      return `\( {dia}/ \){mes}/${ano}`;
+      return `${dia}/${mes}/${ano}`;
     }
 
-    function validarFormulario() {
-      limparErros();
-      let valido = true;
-
-      if (!document.getElementById("nome").value.trim()) {
-        mostrarErro("nome", "erro-nome");
-        valido = false;
-      }
-
-      const telefone = document.getElementById("telefone");
-      if (!telefone.value.trim() || telefone.value.replace(/\D/g, "").length < 10) {
-        mostrarErro("telefone", "erro-telefone");
-        valido = false;
-      }
-
-      const tipoPedido = document.querySelector('input[name="tipo_pedido"]:checked').value;
-      if (tipoPedido === "Entrega em domicílio") {
-        if (!document.getElementById("endereco").value.trim()) {
-          mostrarErro("endereco", "erro-endereco");
-          valido = false;
-        }
-        if (!document.getElementById("bairro").value.trim()) {
-          mostrarErro("bairro", "erro-bairro");
-          valido = false;
-        }
-      }
-
-      if (!inputData.value) {
-        mostrarErro("data", "erro-data");
-        valido = false;
-      }
-
-      if (!document.getElementById("horario").value) {
-        mostrarErro("horario", "erro-horario");
-        valido = false;
-      }
-
-      const temBolo = document.getElementById("bolo-tamanho").value !== "";
-      const quantidades = ["qtd-brigadeiro","qtd-beijinho","qtd-coxinha","qtd-empada","qtd-quiche","qtd-bolo-pote","qtd-torta"];
-      const temOutros = quantidades.some(id => (parseInt(document.getElementById(id).value) || 0) > 0);
-
-      if (!temBolo && !temOutros) {
-        mostrarToast("Selecione pelo menos um produto.", "erro");
-        valido = false;
-      }
-
-      if (!valido) {
-        const primeiro = document.querySelector(".invalid");
-        if (primeiro) primeiro.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-
-      return valido;
-    }
-
+    // =====================================================
+    // ENVIO DO PEDIDO
+    // =====================================================
     function enviarPedidoWhatsApp() {
-      btnEnviar.classList.add("loading");
-      btnEnviar.disabled = true;
-
       const nome = document.getElementById("nome").value.trim();
-      const telefoneCliente = document.getElementById("telefone").value.trim();
+      const telefone = document.getElementById("telefone").value.trim();
       const tipoPedido = document.querySelector('input[name="tipo_pedido"]:checked').value;
-      const data = formatarData(document.getElementById("data").value);
+      const data = document.getElementById("data").value;
       const horario = document.getElementById("horario").value;
       const pagamento = document.querySelector('input[name="pagamento"]:checked').value;
       const observacoes = document.getElementById("observacoes").value.trim() || "Nenhuma";
 
-      let enderecoTexto = "";
-      if (tipoPedido === "Entrega em domicílio") {
-        enderecoTexto = `${document.getElementById("endereco").value.trim()} – ${document.getElementById("bairro").value.trim()}`;
+      // Validações
+      if (!nome) {
+        alert("Por favor, informe seu nome.");
+        document.getElementById("nome").focus();
+        return;
       }
 
+      if (!telefone || telefone.replace(/\D/g, "").length < 10) {
+        alert("Informe um telefone válido com DDD.");
+        document.getElementById("telefone").focus();
+        return;
+      }
+
+      if (!data) {
+        alert("Selecione a data.");
+        document.getElementById("data").focus();
+        return;
+      }
+
+      if (!horario) {
+        alert("Selecione o horário.");
+        document.getElementById("horario").focus();
+        return;
+      }
+
+      let enderecoTexto = "";
+      if (tipoPedido === "Entrega em domicílio") {
+        const endereco = document.getElementById("endereco").value.trim();
+        const bairro = document.getElementById("bairro").value.trim();
+        if (!endereco || !bairro) {
+          alert("Informe o endereço completo e o bairro.");
+          return;
+        }
+        enderecoTexto = `${endereco} – ${bairro}`;
+      }
+
+      // Itens
       const itens = [];
 
       const tamanho = document.getElementById("bolo-tamanho").value;
@@ -860,28 +743,43 @@
 
       listaItens.forEach(item => {
         const qtd = parseInt(document.getElementById(item.id).value) || 0;
-        if (qtd > 0) itens.push(`- ${qtd}x ${item.nome}`);
+        if (qtd > 0) {
+          itens.push(`- ${qtd}x ${item.nome}`);
+        }
       });
 
+      if (itens.length === 0) {
+        alert("Selecione pelo menos um produto (bolo ou outros itens).");
+        return;
+      }
+
+      // Monta a mensagem
       let mensagem = `🍰 *NOVO PEDIDO DE CONFEITARIA*\n\n`;
       mensagem += `👤 *Cliente:* ${nome}\n`;
-      mensagem += `📱 *Telefone:* ${telefoneCliente}\n`;
-      mensagem += `📅 *Data/Hora:* ${data} às ${horario}\n`;
+      mensagem += `📱 *Telefone:* ${telefone}\n`;
+      mensagem += `📅 *Data/Hora:* ${formatarData(data)} às ${horario}\n`;
       mensagem += `🚗 *Entrega/Retirada:* ${tipoPedido}\n`;
-      if (enderecoTexto) mensagem += `📍 *Endereço:* ${enderecoTexto}\n`;
+
+      if (enderecoTexto) {
+        mensagem += `📍 *Endereço:* ${enderecoTexto}\n`;
+      }
+
       mensagem += `\n📋 *ITENS DO PEDIDO:*\n`;
       mensagem += itens.join("\n");
       mensagem += `\n\n✍️ *Observações:* ${observacoes}\n`;
       mensagem += `💳 *Pagamento:* ${pagamento}`;
 
-      const url = `https://wa.me/\( {NUMERO_WHATSAPP}?text= \){encodeURIComponent(mensagem)}`;
+      // ===== ENVIO =====
+      // Garante que o número tenha só dígitos (sem +, espaços ou traços)
+      const numero = NUMERO_WHATSAPP.replace(/\D/g, "");
+      const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
 
-      setTimeout(() => {
-        window.open(url, "_blank");
-        btnEnviar.classList.remove("loading");
-        btnEnviar.disabled = false;
-        mostrarToast("Pedido aberto no WhatsApp! 🎉", "sucesso");
-      }, 500);
+      // Tenta abrir em nova aba; se o navegador bloquear (comum no celular
+      // e em navegadores internos do Instagram/Facebook), abre na mesma aba.
+      const janela = window.open(url, "_blank");
+      if (!janela) {
+        window.location.href = url;
+      }
     }
   </script>
 </body>
