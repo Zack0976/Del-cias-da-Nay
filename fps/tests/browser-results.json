@@ -1,0 +1,182 @@
+[
+  {
+    "feature": "1. Inicialização sem erros fatais",
+    "expected": "jogo inicia, sem exceções",
+    "observed": "sem erros no console",
+    "status": "aprovado"
+  },
+  {
+    "feature": "2. Menu principal exibido",
+    "expected": "menu visível",
+    "observed": "menu visível",
+    "status": "aprovado"
+  },
+  {
+    "feature": "3. Partida pode ser iniciada",
+    "expected": "modo competitivo, 10 agentes, HUD",
+    "observed": "{\"mode\":\"competitive\",\"phase\":\"freeze\",\"n\":10,\"team\":\"CT\",\"hud\":true}",
+    "status": "aprovado"
+  },
+  {
+    "feature": "4. Cenário 3D renderizado",
+    "expected": "chamadas de desenho e triângulos > 0",
+    "observed": "calls=219, triângulos=17080, WebGL2=true",
+    "status": "aprovado"
+  },
+  {
+    "feature": "23a. Menu de compra funciona",
+    "expected": "colete+Falcão comprados; duplicada recusada; saldo correto",
+    "observed": "aberto=true $800→$150 colete=100 pistola=lince",
+    "status": "aprovado"
+  },
+  {
+    "feature": "5a. Jogador se movimenta (W)",
+    "expected": "deslocamento > 2 m",
+    "observed": "7.00 m",
+    "status": "aprovado"
+  },
+  {
+    "feature": "5b. Colisão com paredes",
+    "expected": "para na parede, sem atravessar",
+    "observed": "x=-7.69 parede=-8 dentro=false",
+    "status": "aprovado"
+  },
+  {
+    "feature": "6. Câmera responde ao mouse",
+    "expected": "yaw muda com movimento do mouse",
+    "observed": "Δyaw=-0.440 rad",
+    "status": "aprovado"
+  },
+  {
+    "feature": "7. Seleção de armas",
+    "expected": "tecla 3 = faca, 1 = primária",
+    "observed": "knife / primary:guardiao",
+    "status": "aprovado"
+  },
+  {
+    "feature": "8. Disparo consome munição e respeita a cadência",
+    "expected": "1 bala por tiro, no máximo 12 tiros em 0.97 s a 666 RPM",
+    "observed": "30 → 23 (tiros: 7)",
+    "status": "aprovado"
+  },
+  {
+    "feature": "9. Recarga respeita o tempo",
+    "expected": "não completa antes de 3.1s",
+    "observed": "após 1s: recarregando=true, pente=23; depois: pente=30",
+    "status": "aprovado"
+  },
+  {
+    "feature": "10. Reserva consumida corretamente",
+    "expected": "reserva = 90 − 7",
+    "observed": "reserva 90 → 83",
+    "status": "aprovado"
+  },
+  {
+    "feature": "11. Dano afeta a vida do alvo",
+    "expected": "vida do inimigo diminui",
+    "observed": "100 → 0",
+    "status": "aprovado"
+  },
+  {
+    "feature": "12. Bots navegam pelo mapa",
+    "expected": "maioria dos bots sai do spawn",
+    "observed": "9/9 bots a >3 m do spawn; estados: dead,retreat,hold,patrol",
+    "status": "aprovado"
+  },
+  {
+    "feature": "13/14. Bots detectam, atiram e recarregam",
+    "expected": "tiros de bots e abates ocorrem",
+    "observed": "tiros=29, abates=6",
+    "status": "aprovado"
+  },
+  {
+    "feature": "15. Bots sem munição negativa",
+    "expected": "nenhum carregador/reserva < 0",
+    "observed": "ok",
+    "status": "aprovado"
+  },
+  {
+    "feature": "20. Pausa realmente pausa",
+    "expected": "tempo da simulação congelado",
+    "observed": "Δt=0.000s, menu=true",
+    "status": "aprovado"
+  },
+  {
+    "feature": "16. Bomba pode ser plantada e desarmada",
+    "expected": "planted → defused (kit 5 s)",
+    "observed": "plantio: planted em A; desarme: defused",
+    "status": "aprovado"
+  },
+  {
+    "feature": "17. Vitória encerra a rodada",
+    "expected": "rodada termina com vitória CT por desarme",
+    "observed": "{\"winner\":\"CT\",\"reason\":\"defuse\",\"round\":1,\"mvp\":\"Você\",\"score\":{\"T\":0,\"CT\":1}}",
+    "status": "aprovado"
+  },
+  {
+    "feature": "18. Placar atualizado",
+    "expected": "CT +1",
+    "observed": "T 0 × 1 CT",
+    "status": "aprovado"
+  },
+  {
+    "feature": "19. Próxima rodada sem duplicar entidades",
+    "expected": "10 agentes, 10 modelos, fase freeze",
+    "observed": "{\"n\":10,\"round\":2,\"phase\":\"freeze\",\"ids\":10,\"chars\":10,\"shotL\":2}",
+    "status": "aprovado"
+  },
+  {
+    "feature": "21. Controles de PC (Tab/placar, B, E, R, 1-3, WASD, mouse)",
+    "expected": "placar abre com Tab",
+    "observed": "placar exibido",
+    "status": "aprovado"
+  },
+  {
+    "feature": "25. Reinício sem acumular eventos/entidades",
+    "expected": "mesmos ouvintes e 10 agentes",
+    "observed": "ouvintes 2→2, agentes 10, modelos 10, rodada 1",
+    "status": "aprovado"
+  },
+  {
+    "feature": "26. Desempenho",
+    "expected": "informativo (CPU/swiftshader, sem GPU)",
+    "observed": "10.8 FPS em renderização por software",
+    "status": "não testado"
+  },
+  {
+    "feature": "24. Configurações preservadas após recarregar",
+    "expected": "mouseSens = 2.35",
+    "observed": "2.35",
+    "status": "aprovado"
+  },
+  {
+    "feature": "Autotestes no navegador (Diagnóstico)",
+    "expected": "todos aprovados",
+    "observed": "18/18",
+    "status": "aprovado"
+  },
+  {
+    "feature": "Modo campo de tiro",
+    "expected": "jogador + 6 alvos, arma escolhida",
+    "observed": "{\"n\":7,\"w\":\"brutus\"}",
+    "status": "aprovado"
+  },
+  {
+    "feature": "27. Falha de WebGL gera mensagem útil",
+    "expected": "mensagem explicativa na tela",
+    "observed": "Seu navegador/dispositivo não oferece WebGL. Ative a aceleração de hardware nas configuraç",
+    "status": "aprovado"
+  },
+  {
+    "feature": "22. Controles mobile com multitoque",
+    "expected": "mover + atirar + mirar simultâneos; liberação ao soltar",
+    "observed": "touchUI=true, durante: f=1.00 fogo=true; Δyaw=0.40; pente 30→0; moveu 8.8 m; após soltar: f=0 fogo=false",
+    "status": "aprovado"
+  },
+  {
+    "feature": "Erros de console durante os testes",
+    "expected": "nenhum",
+    "observed": "nenhum",
+    "status": "aprovado"
+  }
+]

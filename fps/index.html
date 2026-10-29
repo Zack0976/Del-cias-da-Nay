@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mirage Protocol">
+<title>Mirage Protocol — FPS Tático</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game" tabindex="0" aria-label="Visão do jogo"></canvas>
+
+<!-- ============================ INICIALIZAÇÃO / DIAGNÓSTICO -->
+<div id="boot" class="screen show">
+  <div class="boot-box">
+    <div class="logo small" aria-hidden="true"></div>
+    <div id="boot-status">Iniciando…</div>
+    <div class="bar"><div id="boot-bar"></div></div>
+    <pre id="boot-error" hidden></pre>
+    <button id="boot-retry" class="btn" hidden>Tentar novamente</button>
+  </div>
+</div>
+
+<!-- ============================ HUD -->
+<div id="hud" hidden>
+  <div id="vignette"></div>
+  <div id="flash"></div>
+  <div id="scope" hidden><div class="scope-ring"></div><div class="scope-h"></div><div class="scope-v"></div></div>
+
+  <div id="topbar">
+    <div class="team-block t"><div class="alive" id="alive-t"></div><div class="score" id="score-t">0</div></div>
+    <div class="timer-block"><div id="round-timer">1:55</div><div id="round-label">RODADA 1</div><div id="bomb-ind" hidden>BOMBA</div></div>
+    <div class="team-block ct"><div class="score" id="score-ct">0</div><div class="alive" id="alive-ct"></div></div>
+  </div>
+  <div id="radar-wrap"><canvas id="radar" width="220" height="220"></canvas><div id="location">—</div></div>
+  <div id="state-badge">OFFLINE · BOTS LOCAIS</div>
+  <div id="fps" hidden></div>
+  <div id="killfeed"></div>
+  <div id="radio"></div>
+
+  <div id="crosshair"><i class="ch-t"></i><i class="ch-b"></i><i class="ch-l"></i><i class="ch-r"></i><i class="ch-d"></i></div>
+  <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
+  <canvas id="dmgind" width="300" height="300"></canvas>
+
+  <div id="center-msg"></div>
+  <div id="sub-msg"></div>
+  <div id="hint"></div>
+  <div id="action-wrap" hidden><div id="action-label">PLANTANDO</div><div class="bar"><div id="action-bar"></div></div></div>
+
+  <div id="bl-panel">
+    <div class="stat hp"><span class="ico">✚</span><span id="hp-val">100</span></div>
+    <div class="stat ar"><span class="ico" id="ar-ico">⛉</span><span id="ar-val">0</span></div>
+    <div class="money" id="money">$800</div>
+    <div class="kit" id="kit-ind" hidden>KIT</div>
+    <div class="bombc" id="bomb-carry" hidden>C-7</div>
+  </div>
+  <div id="br-panel">
+    <div id="weapon-name">Lince P9</div>
+    <div class="ammo"><span id="ammo-clip">12</span><span class="sep">/</span><span id="ammo-res">72</span></div>
+    <div id="reload-wrap" hidden><div id="reload-bar"></div></div>
+    <div id="ammo-warn"></div>
+  </div>
+  <div id="weapon-bar"></div>
+
+  <div id="death-panel" hidden>
+    <div class="dp-title">VOCÊ FOI ELIMINADO</div>
+    <div id="dp-killer"></div>
+    <div id="dp-detail"></div>
+  </div>
+  <div id="spectate" hidden></div>
+</div>
+
+<!-- ============================ PLACAR (TAB) -->
+<div id="scoreboard" class="overlay" hidden>
+  <div class="sb-panel">
+    <div class="sb-head"><span class="t">TERRORISTAS <b id="sbt-score">0</b></span><span id="sb-map">MIRAGE PROTOCOL · DESARME</span><span class="ct"><b id="sbct-score">0</b> CONTRA-TERRORISTAS</span></div>
+    <div class="sb-cols">
+      <table id="sb-table-t"></table>
+      <table id="sb-table-ct"></table>
+    </div>
+    <div id="sb-rounds"></div>
+  </div>
+</div>
+
+<!-- ============================ COMPRA -->
+<div id="buy-menu" class="overlay" hidden>
+  <div class="buy-panel">
+    <div class="buy-head"><div class="buy-title">ARSENAL</div><div id="buy-money">$0</div><div id="buy-time"></div><button class="btn small" id="buy-close">FECHAR ✕</button></div>
+    <div id="buy-cats"></div>
+    <div id="buy-items"></div>
+    <div id="buy-msg"></div>
+  </div>
+</div>
+
+<!-- ============================ MENUS -->
+<div id="menu-main" class="screen">
+  <div class="menu-bg"></div>
+  <div class="menu-col">
+    <div class="logo" aria-label="Mirage Protocol"></div>
+    <div class="tagline">FPS TÁTICO · MODO DESARME OFFLINE</div>
+    <button class="btn primary" data-act="play">JOGAR · COMPETITIVO</button>
+    <button class="btn" data-act="training">CAMPO DE TIRO</button>
+    <button class="btn" data-act="free">MODO LIVRE</button>
+    <button class="btn" data-act="settings">CONFIGURAÇÕES</button>
+    <button class="btn" data-act="tutorial">CONTROLES E TUTORIAL</button>
+    <button class="btn" data-act="history">HISTÓRICO</button>
+    <button class="btn ghost" data-act="fullscreen">TELA CHEIA ⛶</button>
+    <div class="menu-foot">Tudo gerado por código · Sem multiplayer online · <span id="ver"></span></div>
+  </div>
+</div>
+
+<div id="menu-setup" class="screen">
+  <div class="menu-bg"></div>
+  <div class="panel">
+    <h2 id="setup-title">PARTIDA COMPETITIVA</h2>
+    <div class="row comp-only"><label>Equipe</label><div class="seg" data-key="team"><button data-v="T">TERRORISTAS</button><button data-v="CT">CONTRA-TERRORISTAS</button><button data-v="auto">AUTOMÁTICO</button></div></div>
+    <div class="row comp-only"><label>Dificuldade dos bots</label><div class="seg" data-key="difficulty"><button data-v="easy">FÁCIL</button><button data-v="normal">NORMAL</button><button data-v="hard">DIFÍCIL</button></div></div>
+    <div class="row comp-only"><label>Jogadores por equipe</label><div class="seg" data-key="teamSize"><button data-v="1">1v1</button><button data-v="2">2v2</button><button data-v="3">3v3</button><button data-v="4">4v4</button><button data-v="5">5v5</button></div></div>
+    <div class="row comp-only"><label>Rodadas para vencer</label><div class="seg" data-key="roundsToWin"><button data-v="3">3</button><button data-v="5">5</button><button data-v="8">8</button><button data-v="13">13</button></div></div>
+    <div class="row train-only"><label>Alvos</label><div class="seg" data-key="dummiesMove"><button data-v="true">EM MOVIMENTO</button><button data-v="false">PARADOS</button></div></div>
+    <div class="row train-only"><label>Alvos atiram de volta</label><div class="seg" data-key="dummiesArmed"><button data-v="false">NÃO</button><button data-v="true">SIM</button></div></div>
+    <div class="row noncomp"><label>Armamento inicial</label><select id="loadout-select"></select></div>
+    <p class="note comp-only">Equipes balanceadas automaticamente: sua equipe recebe bots até completar o tamanho escolhido. Fogo amigo desativado.</p>
+    <div class="row buttons"><button class="btn ghost" data-act="back">VOLTAR</button><button class="btn primary" data-act="start">INICIAR</button></div>
+  </div>
+</div>
+
+<div id="menu-pause" class="screen">
+  <div class="panel narrow">
+    <h2>PAUSADO</h2>
+    <p class="note">A simulação está congelada.</p>
+    <button class="btn primary" data-act="resume">CONTINUAR</button>
+    <button class="btn" data-act="settings">CONFIGURAÇÕES</button>
+    <button class="btn" data-act="restart">REINICIAR PARTIDA</button>
+    <button class="btn ghost" data-act="quit">SAIR PARA O MENU</button>
+  </div>
+</div>
+
+<div id="menu-settings" class="screen">
+  <div class="panel wide">
+    <h2>CONFIGURAÇÕES</h2>
+    <div class="tabs" id="set-tabs"><button data-tab="controls" class="on">CONTROLES</button><button data-tab="video">VÍDEO</button><button data-tab="audio">ÁUDIO</button><button data-tab="touch">TOQUE</button><button data-tab="diag">DIAGNÓSTICO</button></div>
+    <div class="tab-body" id="set-body"></div>
+    <div class="row buttons"><button class="btn ghost" data-act="reset">RESTAURAR PADRÕES</button><button class="btn primary" data-act="close">CONCLUÍDO</button></div>
+  </div>
+</div>
+
+<div id="menu-results" class="screen">
+  <div class="panel wide">
+    <h2 id="res-title">VITÓRIA</h2>
+    <div id="res-score"></div>
+    <div id="res-stats"></div>
+    <div class="sb-cols" id="res-tables"></div>
+    <div class="row buttons"><button class="btn ghost" data-act="menu">MENU PRINCIPAL</button><button class="btn primary" data-act="again">JOGAR NOVAMENTE</button></div>
+  </div>
+</div>
+
+<div id="menu-history" class="screen">
+  <div class="panel wide">
+    <h2>HISTÓRICO LOCAL</h2>
+    <div id="hist-body"></div>
+    <div class="row buttons"><button class="btn ghost" data-act="clear">LIMPAR</button><button class="btn primary" data-act="back">VOLTAR</button></div>
+  </div>
+</div>
+
+<div id="menu-tutorial" class="screen">
+  <div class="panel wide">
+    <h2>CONTROLES E OBJETIVO</h2>
+    <div class="tut-grid">
+      <div>
+        <h3>Computador</h3>
+        <ul class="keys">
+          <li><kbd>W A S D</kbd> mover</li><li><kbd>Mouse</kbd> mirar</li><li><kbd>Botão esq.</kbd> atirar</li>
+          <li><kbd>Botão dir.</kbd> luneta / facada forte / arremesso curto</li><li><kbd>R</kbd> recarregar</li><li><kbd>Espaço</kbd> pular</li>
+          <li><kbd>Shift</kbd> andar em silêncio (configurável)</li><li><kbd>Ctrl</kbd> ou <kbd>C</kbd> agachar</li><li><kbd>1</kbd>–<kbd>5</kbd> / roda: armas</li>
+          <li><kbd>G</kbd> granadas (ciclo) · <kbd>Q</kbd> última arma · <kbd>F</kbd> inspecionar arma</li><li><kbd>E</kbd> plantar/desarmar/pegar arma</li><li><kbd>B</kbd> comprar · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausa</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Celular / tablet</h3>
+        <ul class="keys">
+          <li>Polegar esquerdo: analógico de movimento (empurre pouco para andar devagar)</li>
+          <li>Polegar direito: arraste na metade direita para mirar</li>
+          <li>Botão <b>FOGO</b> atira e também permite arrastar a mira</li>
+          <li><b>MIRA</b>, <b>R</b>, <b>PULO</b>, <b>AGACHAR</b>, <b>ANDAR</b>, <b>USAR</b>, <b>TROCAR</b>, <b>GRANADA</b>, <b>$</b> compra, <b>☰</b> placar, <b>II</b> pausa</li>
+          <li>Use em paisagem e tela cheia. Botões podem ser movidos e redimensionados em Configurações → Toque.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Objetivo</h3>
+        <ul class="keys">
+          <li><b>Terroristas:</b> levem a bomba C-7 até a área A ou B e plantem (segure USAR por 3,2 s). Ela explode em 40 s.</li>
+          <li><b>Contra-Terroristas:</b> defendam os sites. Se a bomba for plantada, desarmem (10 s, ou 5 s com kit).</li>
+          <li>Também vence quem eliminar a outra equipe. Se o tempo acabar sem plantio, CT vencem.</li>
+          <li>Ganhe dinheiro por vitória, derrota consecutiva e abates. Compre no início da rodada, na sua base.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="row buttons"><button class="btn primary" data-act="back">ENTENDIDO</button></div>
+  </div>
+</div>
+
+<!-- ============================ CONTROLES DE TOQUE -->
+<div id="touch-ui" hidden>
+  <div id="joy-base"><div id="joy-knob"></div></div>
+  <button class="tbtn" data-b="fire" id="tb-fire">FOGO</button>
+  <button class="tbtn" data-b="fire2" id="tb-fire2">FOGO</button>
+  <button class="tbtn" data-b="aim" id="tb-aim">MIRA</button>
+  <button class="tbtn" data-b="reload" id="tb-reload">R</button>
+  <button class="tbtn" data-b="jump" id="tb-jump">PULO</button>
+  <button class="tbtn" data-b="crouch" id="tb-crouch">AGACH.</button>
+  <button class="tbtn" data-b="walk" id="tb-walk">ANDAR</button>
+  <button class="tbtn" data-b="use" id="tb-use">USAR</button>
+  <button class="tbtn" data-b="switch" id="tb-switch">TROCAR</button>
+  <button class="tbtn" data-b="grenade" id="tb-grenade">GRAN.</button>
+  <button class="tbtn" data-b="buy" id="tb-buy">$</button>
+  <button class="tbtn" data-b="score" id="tb-score">☰</button>
+  <button class="tbtn" data-b="pause" id="tb-pause">II</button>
+  <div id="touch-edit-bar" hidden><span>Arraste os botões para reposicionar.</span><button class="btn small" id="touch-edit-reset">PADRÃO</button><button class="btn small primary" id="touch-edit-done">SALVAR</button></div>
+</div>
+
+<div id="rotate-hint" hidden><div>⟲</div><p>Gire o aparelho para a horizontal para jogar melhor.</p><button class="btn small" id="rotate-dismiss">CONTINUAR ASSIM</button></div>
+<div id="toasts"></div>
+
+<!-- Three.js r149 (MIT) incluído localmente: o jogo funciona sem internet -->
+<script src="lib/three.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/map.js"></script>
+<script src="js/weapons.js"></script>
+<script src="js/world.js"></script>
+<script src="js/agent.js"></script>
+<script src="js/bots.js"></script>
+<script src="js/game.js"></script>
+<script src="js/selftest.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/render.js"></script>
+<script src="js/guns.js"></script>
+<script src="js/models.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
