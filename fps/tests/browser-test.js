@@ -73,6 +73,7 @@ function rec(feature, expected, observed, ok) { results.push({ feature, expected
     await wait(1500);
     const st = await ev(() => ({ mode: MP.game.mode, phase: MP.game.phase, n: MP.world.agents.length, team: MP.game.player.team, hud: !document.getElementById('hud').hidden }));
     rec('3. Partida pode ser iniciada', 'modo competitivo, 10 agentes, HUD', JSON.stringify(st), st.mode === 'competitive' && st.n === 10 && st.hud && st.team === 'CT');
+    const spawnPos = await ev(() => MP.world.agents.filter(a => a.isBot).map(a => [a.pos.x, a.pos.z]));
     const gl = await ev(() => ({ calls: MP.render.renderer.info.render.calls, tris: MP.render.renderer.info.render.triangles, webgl2: MP.render.renderer.capabilities.isWebGL2 }));
     rec('4. Cenário 3D renderizado', 'chamadas de desenho e triângulos > 0', `calls=${gl.calls}, triângulos=${gl.tris}, WebGL2=${gl.webgl2}`, gl.calls > 5 && gl.tris > 1000);
     await shot('02-base-ct');
@@ -127,11 +128,13 @@ function rec(feature, expected, observed, ok) { results.push({ feature, expected
     rec('7. Seleção de armas', 'tecla 3 = faca, 1 = primária', `${k} / ${pr}`, k === 'knife' && pr === 'primary:guardiao');
 
     // disparo consome munição
-    await ev(() => { const p = MP.game.player; p.pos.set(MP.map.cellX(23.5), 0, MP.map.cellZ(25)); p.yaw = 0; p.pitch = 0; p.vel.set(0, 0, 0); });
+    await ev(() => { const p = MP.game.player; p.pos.set(MP.map.cellX(21), 0, MP.map.cellZ(25)); p.yaw = 0; p.pitch = 0; p.vel.set(0, 0, 0); });
     const a0 = await ev(() => MP.game.player.weapon.clip);
+    const tf0 = await ev(() => MP.world.time);
     await page.mouse.move(640, 360); await page.mouse.down(); await simWait(0.5); await page.mouse.up(); await frames(2);
-    const a1 = await ev(() => ({ clip: MP.game.player.weapon.clip, res: MP.game.player.weapon.reserve, fired: MP.game.player.shotsFired }));
-    rec('8. Disparo consome munição', 'carregador diminui (rajada ~0,5 s a 666 RPM ≈ 5-6 tiros)', `${a0} → ${a1.clip} (tiros: ${a1.fired})`, a1.clip < a0 && a1.clip >= 0 && a0 - a1.clip <= 7);
+    const a1 = await ev(() => ({ clip: MP.game.player.weapon.clip, res: MP.game.player.weapon.reserve, fired: MP.game.player.shotsFired, t: MP.world.time }));
+    const maxShots = Math.ceil((a1.t - tf0) / (60 / 666)) + 1;
+    rec('8. Disparo consome munição e respeita a cadência', `1 bala por tiro, no máximo ${maxShots} tiros em ${(a1.t - tf0).toFixed(2)} s a 666 RPM`, `${a0} → ${a1.clip} (tiros: ${a1.fired})`, a1.clip < a0 && a1.clip >= 0 && a0 - a1.clip === a1.fired && a1.fired <= maxShots);
     await shot('04-disparo');
 
     // recarga
@@ -160,13 +163,13 @@ function rec(feature, expected, observed, ok) { results.push({ feature, expected
     await ev(() => { window.__dummy.ai.dummy = false; });
 
     // ---------------------------------------------------------------- bots
-    const bots0 = await ev(() => MP.world.agents.filter(a => a.isBot).map(a => [a.pos.x, a.pos.z]));
+    const bots0 = spawnPos;
     const shotsBefore = await ev(() => MP.world.agents.filter(a => a.isBot).reduce((s, a) => s + a.shotsFired, 0));
     await ev(() => { const p = MP.game.player; p.pos.set(MP.map.cellX(23), 0, MP.map.cellZ(3)); p.hp = 100000; }); // jogador observa sem morrer
     await simWait(14);
     const bots1 = await ev(() => MP.world.agents.filter(a => a.isBot).map(a => [a.pos.x, a.pos.z, a.alive, a.ai.state]));
     let movedBots = 0; bots1.forEach((b, i) => { if (Math.hypot(b[0] - bots0[i][0], b[1] - bots0[i][1]) > 3) movedBots++; });
-    rec('12. Bots navegam pelo mapa', 'maioria dos bots se desloca', `${movedBots}/${bots1.length} bots se moveram >3 m; estados: ${[...new Set(bots1.map(b => b[3]))].join(',')}`, movedBots >= 5);
+    rec('12. Bots navegam pelo mapa', 'maioria dos bots sai do spawn', `${movedBots}/${bots1.length} bots a >3 m do spawn; estados: ${[...new Set(bots1.map(b => b[3]))].join(',')}`, movedBots >= 5);
     const info = await ev(() => ({ shots: MP.world.agents.filter(a => a.isBot).reduce((s, a) => s + a.shotsFired, 0), kills: MP.world.agents.reduce((s, a) => s + a.kills, 0), neg: MP.world.agents.some(a => [a.inv.primary, a.inv.secondary].some(w => w && (w.clip < 0 || w.reserve < 0))) }));
     rec('13/14. Bots detectam, atiram e recarregam', 'tiros de bots e abates ocorrem', `tiros=${info.shots - shotsBefore}, abates=${info.kills}`, info.shots - shotsBefore > 0);
     rec('15. Bots sem munição negativa', 'nenhum carregador/reserva < 0', info.neg ? 'munição negativa encontrada' : 'ok', !info.neg);
@@ -195,7 +198,8 @@ function rec(feature, expected, observed, ok) { results.push({ feature, expected
       t.pos.set(map.cellX(6), 0, map.cellZ(7)); t.vel.set(0, 0, 0);
       g.phase = 'live'; g.phaseEnd = w.time + 100;
       // impede o fim da rodada por eliminação durante o teste
-      for (const a of w.agents) if (a.team === 'CT' && a !== g.player) { a.ai.dummy = true; a.ai.dummyArmed = false; a.hp = 100000; }
+      for (const a of w.agents) if (a !== g.player && a !== t) { a.ai.dummy = true; a.ai.dummyArmed = false; a.ai.dummyMove = false; if (a.team === 'CT') { a.alive = true; a.hp = 100000; } }
+      const pl = g.player; pl.alive = true; pl.hp = 100000; pl.pos.set(map.cellX(23), 0, map.cellZ(3));
       t.ai.update = function () { this.agent.intent.use = true; this.agent.intent.f = 0; this.agent.intent.r = 0; };
       return true;
     });

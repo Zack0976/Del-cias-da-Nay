@@ -7,6 +7,21 @@ texturas (Canvas 2D), armas e personagens (malhas procedurais), efeitos, interfa
 
 Única dependência: **Three.js r149** (MIT), já incluída em `lib/three.min.js` — o jogo funciona sem internet.
 
+![Arsenal em inspeção](docs/arsenal-inspecao.jpg)
+
+Capturas reais (Chromium headless, renderização por software) em [`docs/`](docs/): menu, base CT, compra,
+combate, bomba plantada, placar, configurações, campo de tiro e controles de toque.
+
+## Armas em alto detalhe
+
+Cada arma é modelada peça a peça em `js/guns.js` (40–150 peças, 1–4 mil triângulos): receptores e coronhas por
+perfis extrudados com chanfro, canos/freios de boca/supressores/lunetas torneados, trilhos Picatinny com ranhuras,
+miras com pontos de trítio, red dot com retículo, rebites, pinos, alavancas, janela de ejeção, gatilho e guarda-mato,
+carregadores curvos com nervuras e cartucho visível, carregador translúcido com munição, cinta de munição na
+metralhadora, gravações com nome/calibre, madeira e polímero texturizados e materiais PBR com reflexos de um mapa de
+ambiente procedural. No viewmodel as peças estáticas são mescladas por material (poucas chamadas de desenho) e as
+móveis (carregador, ferrolho, telha, LED) continuam animadas. Pressione **F** para inspecionar a arma.
+
 ## Executar no computador
 
 Opção A — arquivo único (mais simples):

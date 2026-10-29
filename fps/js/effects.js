@@ -93,7 +93,7 @@
       // marcas de tiro
       const holeTex = MP.textures.get('bulletHole', () => MP.textures.gen.bulletHole(64), { clamp: true });
       const hmat = new THREE.MeshBasicMaterial({ map: holeTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
-      const hgeo = new THREE.PlaneGeometry(0.12, 0.12);
+      const hgeo = new THREE.PlaneGeometry(0.075, 0.075);
       this.decals = []; this.decalI = 0;
       for (let i = 0; i < 160; i++) { const m = new THREE.Mesh(hgeo, hmat); m.visible = false; m.matrixAutoUpdate = false; scene.add(m); this.decals.push(m); }
       const scorchTex = MP.textures.get('scorch', () => MP.textures.gen.scorch(128), { clamp: true });

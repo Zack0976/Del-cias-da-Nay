@@ -5,7 +5,7 @@
   const { math: M } = MP;
 
   const DEFAULT_TOUCH = {
-    fire: { x: 0.86, y: 0.62 }, fire2: { x: 0.06, y: 0.42 }, aim: { x: 0.94, y: 0.40 }, reload: { x: 0.74, y: 0.80 },
+    fire: { x: 0.86, y: 0.62 }, fire2: { x: 0.07, y: 0.56 }, aim: { x: 0.94, y: 0.40 }, reload: { x: 0.74, y: 0.80 },
     jump: { x: 0.94, y: 0.82 }, crouch: { x: 0.84, y: 0.90 }, walk: { x: 0.30, y: 0.90 }, use: { x: 0.72, y: 0.55 },
     switch: { x: 0.74, y: 0.36 }, grenade: { x: 0.64, y: 0.88 }, buy: { x: 0.18, y: 0.07 }, score: { x: 0.24, y: 0.07 }, pause: { x: 0.30, y: 0.07 }
   };
