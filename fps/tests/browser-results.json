@@ -1,0 +1,68 @@
+[
+  {
+    "feature": "1. Inicialização sem erros fatais",
+    "expected": "jogo inicia, sem exceções",
+    "observed": "sem erros no console",
+    "status": "aprovado"
+  },
+  {
+    "feature": "2. Menu principal exibido",
+    "expected": "menu visível",
+    "observed": "menu visível",
+    "status": "aprovado"
+  },
+  {
+    "feature": "3. Partida pode ser iniciada",
+    "expected": "modo competitivo, 10 agentes, HUD",
+    "observed": "{\"mode\":\"competitive\",\"phase\":\"freeze\",\"n\":10,\"team\":\"CT\",\"hud\":true}",
+    "status": "aprovado"
+  },
+  {
+    "feature": "4. Cenário 3D renderizado",
+    "expected": "chamadas de desenho e triângulos > 0",
+    "observed": "calls=318, triângulos=21862, WebGL2=true",
+    "status": "aprovado"
+  },
+  {
+    "feature": "23a. Menu de compra funciona",
+    "expected": "colete+Falcão comprados; duplicada recusada; saldo correto",
+    "observed": "aberto=true $800→$150 colete=100 pistola=lince",
+    "status": "aprovado"
+  },
+  {
+    "feature": "5a. Jogador se movimenta (W)",
+    "expected": "deslocamento > 2 m",
+    "observed": "8.77 m",
+    "status": "aprovado"
+  },
+  {
+    "feature": "5b. Colisão com paredes",
+    "expected": "para na parede, sem atravessar",
+    "observed": "x=-7.69 parede=-8 dentro=false",
+    "status": "aprovado"
+  },
+  {
+    "feature": "6. Câmera responde ao mouse",
+    "expected": "yaw muda com movimento do mouse",
+    "observed": "Δyaw=-0.440 rad",
+    "status": "aprovado"
+  },
+  {
+    "feature": "7. Seleção de armas",
+    "expected": "tecla 3 = faca, 1 = primária",
+    "observed": "knife / primary:guardiao",
+    "status": "aprovado"
+  },
+  {
+    "feature": "8. Disparo consome munição",
+    "expected": "carregador diminui (rajada ~0,5 s a 666 RPM ≈ 5-6 tiros)",
+    "observed": "30 → 23 (tiros: 7)",
+    "status": "aprovado"
+  },
+  {
+    "feature": "Execução do teste",
+    "expected": "sem exceções",
+    "observed": "page.evaluate: TypeError: Cannot read properties of null (reading 'clip')\n    at eval (eval at evaluate (:311:30), <anonymous>:1:56)\n    at UtilityScript.evaluate (<anonymous>:313:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+    "status": "reprovado"
+  }
+]
