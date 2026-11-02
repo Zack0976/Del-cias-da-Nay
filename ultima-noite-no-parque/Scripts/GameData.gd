@@ -127,6 +127,7 @@ func _exit_tree() -> void:
 	Sons.limpar_cache_memoria()
 	SpriteLibrary._cache_frames.clear()
 	PixelArte.limpar_cache()
+	Sombras.limpar_cache()
 
 
 func _notification(what: int) -> void:
@@ -345,22 +346,51 @@ func novo_jogo(personagem: String) -> void:
 
 
 func tem_save() -> bool:
-	return FileAccess.file_exists(CAMINHO_SAVE)
+	return FileAccess.file_exists(CAMINHO_SAVE) or FileAccess.file_exists(CAMINHO_SAVE_BAK)
+
+
+## v10 — SAVE SEGURO:
+##  1. grava num arquivo temporário (save.tmp)
+##  2. o save antigo vira backup (save.bak)
+##  3. o temporário vira o save de verdade
+## Se o celular fechar o app NO MEIO da gravação, o save antigo continua inteiro
+## (antes o arquivo podia ficar pela metade e o CONTINUAR perdia tudo).
+const CAMINHO_SAVE_TMP := "user://save.tmp"
+const CAMINHO_SAVE_BAK := "user://save.bak"
+var ultimo_save_ms := 0
 
 
 func salvar_jogo() -> void:
 	var cfg := ConfigFile.new()
+	cfg.set_value("jogo", "versao_save", 10)
 	cfg.set_value("jogo", "personagem", personagem_escolhido)
 	cfg.set_value("jogo", "etapa", etapa)
 	cfg.set_value("jogo", "itens", itens)
 	cfg.set_value("jogo", "parte2", parte2)
-	cfg.save(CAMINHO_SAVE)
+	if cfg.save(CAMINHO_SAVE_TMP) != OK:
+		push_warning("Não consegui gravar o save temporário.")
+		return
+	# confere se o temporário abre direitinho antes de trocar
+	var teste := ConfigFile.new()
+	if teste.load(CAMINHO_SAVE_TMP) != OK:
+		push_warning("Save temporário corrompido: mantendo o anterior.")
+		return
+	if FileAccess.file_exists(CAMINHO_SAVE):
+		if FileAccess.file_exists(CAMINHO_SAVE_BAK):
+			DirAccess.remove_absolute(CAMINHO_SAVE_BAK)
+		DirAccess.rename_absolute(CAMINHO_SAVE, CAMINHO_SAVE_BAK)
+	if DirAccess.rename_absolute(CAMINHO_SAVE_TMP, CAMINHO_SAVE) != OK:
+		DirAccess.copy_absolute(CAMINHO_SAVE_TMP, CAMINHO_SAVE)
+	ultimo_save_ms = Time.get_ticks_msec()
 
 
 func carregar_jogo() -> bool:
 	var cfg := ConfigFile.new()
 	if cfg.load(CAMINHO_SAVE) != OK:
-		return false
+		# save principal estragado ou sumido: tenta o backup
+		if cfg.load(CAMINHO_SAVE_BAK) != OK:
+			return false
+		log_passo("save: usando o backup (save.bak)")
 	personagem_escolhido = str(cfg.get_value("jogo", "personagem", "masculino"))
 	etapa = int(cfg.get_value("jogo", "etapa", 0))
 	itens.clear()
@@ -377,8 +407,9 @@ func cena_do_save() -> String:
 
 
 func apagar_save() -> void:
-	if tem_save():
-		DirAccess.remove_absolute(CAMINHO_SAVE)
+	for c in [CAMINHO_SAVE, CAMINHO_SAVE_BAK, CAMINHO_SAVE_TMP]:
+		if FileAccess.file_exists(c):
+			DirAccess.remove_absolute(c)
 
 
 func tem_item(nome: String) -> bool:

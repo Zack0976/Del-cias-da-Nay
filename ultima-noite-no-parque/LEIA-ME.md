@@ -323,3 +323,78 @@ Os testes automáticos rodaram no modo celular e deram **113 OK**. Os testes nov
 2. **A criatura**: um inimigo que procura o grupo `"jogador"` e foge da luz da lanterna.
 3. **Bateria da lanterna**: a luz vai diminuindo e você precisa achar pilhas.
 4. **Encontrar Marina e Rafa**: cada um é um objetivo novo.
+
+## Versão 10.0 — bugs consertados, sombras, machado, cama, cartazes, lago e o Lucas novo
+
+> Abra o projeto no editor da Godot **uma vez** antes de exportar: ele importa sozinho
+> os arquivos novos (`Sprites/lucas_andar.png` e os sons `.wav` em `Sons/gerados/`).
+
+### Bugs consertados
+| Bug | Por que acontecia | Como ficou |
+|---|---|---|
+| **O joystick sumia** depois de abrir o CRIAR | O HUD "lembrava" se o joystick estava visível na hora de esconder. Abrindo a MOCHILA e depois o CRIAR, ele lembrava "invisível". E fechar o CRIAR **enquanto algo era criado** saía da função antes de devolver o joystick | Cada pedido para esconder tem um **motivo** (conversa, painel, leitura). O joystick volta quando não sobra nenhum. Minimizar o app com o dedo na tela também solta o joystick |
+| **Menu CRIAR bugado** | A lista inteira era apagada e recriada a cada item que entrava na mochila. A rolagem pulava, os botões piscavam e dava para tocar num botão que já tinha sido apagado | Cada receita tem a sua linha fixa. Tem **abas** (TUDO / NA MÃO / BANCADA / NO FOGO), o que dá para criar aparece primeiro, o botão diz o que falta (FALTA ITEM, VÁ À BANCADA, PERTO DO FOGO), os ingredientes ficam verdes/vermelhos e aparece uma **barra de progresso** |
+| Perdia os ingredientes com a mochila cheia | Os ingredientes eram tirados antes de ver se o item novo cabia | Se não couber, nada é gasto |
+| O tempo de criar continuava com o jogo pausado | O timer ignorava a pausa | Agora para junto com a pausa |
+| **Save automático** | Só salvava no amanhecer. Se o Android fechasse o jogo à tarde, você voltava para as 6h. O "Menu principal" gravava dados velhos. Se o app fechasse no meio da gravação, o save podia estragar | Salva ao entrar/sair da cabana, ao pausar, ao minimizar, a cada hora do jogo e a cada 45 s (sem monstro perto). A gravação é **segura** (arquivo temporário + `save.bak` de reserva). O menu de pausa mostra quando foi o último save. Carregar no meio da noite traz os monstros de volta |
+| A intro da Parte 2 repetia | O "já vi a intro" não era salvo | Salva no fim da intro |
+| A fogueira/lareira apagavam ao continuar | Não eram salvas | Voltam acesas com o tempo que faltava |
+
+### Otimização
+- Os ~150 recursos do chão não rodam mais código a cada quadro: só os que estão **perto** do jogador.
+- O lago não calcula nem redesenha nada quando está fora da tela.
+- As barras de status e a vinheta do estresse só redesenham quando o valor muda.
+- No máximo **8 efeitos de som ao mesmo tempo** no celular (16 no PC).
+
+### Sombras dinâmicas (seguras no Mali)
+Não usa PointLight2D, LightOccluder2D nem shader. Cada sombra é um Sprite2D com uma
+elipse pixelada, e todas usam a mesma textura (a placa de vídeo desenha tudo junto).
+Elas são atualizadas só 5 a 10 vezes por segundo, e só perto da câmera.
+- **De dia:** a sombra do sol gira com as horas. Fica comprida de manhã e à tarde e curtinha ao meio-dia.
+- **De noite:** sombra fraquinha da lua. Perto de uma luz (fogueira, lampião, tocha, lareira, sinalizador), a sombra aponta para longe dela. Nos faróis do carro ela fica bem comprida.
+- O jogador, os monstros (menos a Sombra, que é fumaça), o Lucas e as árvores fazem sombra.
+- Em DETALHE BAIXO só os personagens fazem sombra.
+
+### Coisas novas
+- **Machado** (2 madeira, 2 pedra, 1 corda, na mão) e **Machado de ferro** (bancada, dia 2):
+  - chegue perto de uma árvore e toque em **CORTAR**
+  - 3 golpes (ou 2 com o de ferro) derrubam a árvore e dão 3 ou 4 madeiras
+  - fica um toco no lugar
+  - cortar faz barulho
+  - também servem de arma
+- **Cama → DEITAR:**
+  - a barra da **Mente** sobe aos poucos
+  - o tempo **não** acelera
+  - relaxa mais rápido com portas e janelas protegidas e com a lareira acesa
+  - mexa o joystick para levantar
+  - se um monstro te acertar, você levanta
+  - **DORMIR** continua existindo
+- **4 cartazes de DESAPARECIDO** pelo mapa (botão LER). São pessoas que sumiram no parque em outras épocas. Têm dicas escondidas, e um deles leva a um esconderijo.
+- **Lago:**
+  - **barco virado** para vasculhar
+  - **covo** (armadilha de peixe): coloque na beira e ele pega peixes sozinho com as horas
+  - **isca:** o peixe morde mais rápido e às vezes vem um **peixe grande**
+  - **vagalumes** à noite
+  - sapos coaxando
+- **Receitas novas:**
+  - machado e machado de ferro
+  - bandagem (+15 vida)
+  - isca
+  - covo
+  - fruta assada (no fogo)
+- **O Lucas:**
+  - folha de sprite nova (`Sprites/lucas_andar.png`, 4x4 quadros de 32 px: frente, costas, direita e esquerda), feita a partir do desenho enviado
+  - ele usa essa folha na cutscene
+  - na Parte 2, a partir do dia 2, às vezes você vê o **vulto do Lucas** no fim da tarde, ou de noite quando a mente está ruim
+  - quando você chega perto, ele some e deixa uma **página do diário** dele (5 no total)
+- **Sons novos** (WAV curtos, tocam uma vez só, sem loop):
+  - machado e árvore caindo
+  - água e peixe
+  - sapo
+  - coração (monstro perto ou mente no limite)
+  - sussurros (mente ruim)
+  - papel
+  - cama
+  - rajadas de vento
+  - galhos estalando longe à noite
+  - Os arquivos são gerados por `ferramentas/gerar_sons_v10.py`. A folha do Lucas é gerada por `ferramentas/gerar_lucas_v10.py`.

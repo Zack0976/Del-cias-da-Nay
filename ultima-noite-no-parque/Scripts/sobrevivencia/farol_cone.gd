@@ -20,6 +20,8 @@ static func poligono(origem: Vector2, angulo: float, alcance: float, abertura: f
 		var dir := Vector2(cos(a), sin(a))
 		var dist := alcance
 		for o in obstaculos:
+			if o[1] <= 0.0:
+				continue  # v10: árvore cortada
 			var centro: Vector2 = o[0]
 			if centro.distance_squared_to(origem) > (alcance + o[1]) * (alcance + o[1]):
 				continue  # longe demais, nem testa (economiza contas)

@@ -40,11 +40,19 @@ const FOLHAS := {
 ## Quais folhas cada personagem usa.
 ## "frente" = andando para baixo, "costas" = andando para cima.
 const PERSONAGENS := {
+	# v10: o Lucas tem folha nova 4x4 (frente, costas e os dois lados) — veja GRADES_4X4
 	"lucas": {"frente": "lucas_frente", "costas": "lucas_costas"},
 	"marina": {"frente": "marina_frente", "costas": "marina_costas"},
 	"rafa": {"frente": "rafa_frente", "costas": "rafa_costas"},
 	"jogadora": {"frente": "jogadora_frente", "costas": "jogadora_costas"},
 	# "protagonista" é especial (folha 4x4 de 32px + quadros parados soltos), veja abaixo.
+}
+
+## v10: personagens com folha 4x4 de quadros 32x32 (igual à do protagonista):
+## linha 0 = andando para baixo (frente), 1 = para cima (costas),
+## 2 = para a direita, 3 = para a esquerda.
+const GRADES_4X4 := {
+	"lucas": "lucas_andar",
 }
 
 static var _cache_frames := {}
@@ -106,6 +114,8 @@ static func frames_personagem(personagem: String) -> SpriteFrames:
 
 	if personagem == "protagonista":
 		_montar_protagonista(sf, escalas)
+	elif GRADES_4X4.has(personagem) and ResourceLoader.exists(PASTA + GRADES_4X4[personagem] + ".png"):
+		_montar_grade(sf, escalas, GRADES_4X4[personagem])
 	else:
 		var info: Dictionary = PERSONAGENS[personagem]
 		# Não existe folha de lado: usamos a de frente andando (fica natural no top-down).
@@ -125,6 +135,20 @@ static func frames_personagem(personagem: String) -> SpriteFrames:
 	sf.set_meta("escalas", escalas)
 	_cache_frames[personagem] = sf
 	return sf
+
+
+static func _montar_grade(sf: SpriteFrames, escalas: Dictionary, folha: String) -> void:
+	var tex := textura(folha)
+	var linhas := ["baixo", "cima", "direita", "esquerda"]
+	for l in 4:
+		var dir: String = linhas[l]
+		_add_anim(sf, "andar_" + dir, 8.0, true)
+		for c in 4:
+			sf.add_frame("andar_" + dir, _atlas(tex, Rect2(c * 32, l * 32, 32, 32)))
+		_add_anim(sf, "parado_" + dir, 1.0, false)
+		sf.add_frame("parado_" + dir, _atlas(tex, Rect2(0, l * 32, 32, 32)))
+		escalas["andar_" + dir] = 1.0
+		escalas["parado_" + dir] = 1.0
 
 
 static func _montar_protagonista(sf: SpriteFrames, escalas: Dictionary) -> void:

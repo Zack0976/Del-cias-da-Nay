@@ -4,6 +4,7 @@ extends CanvasLayer
 
 signal botao_examinar
 signal pediu_menu
+signal pediu_salvar   ## v10: pausou / minimizou o app → a fase salva na hora
 
 var objetivo_painel: PanelContainer
 var objetivo_titulo: Label
@@ -14,6 +15,7 @@ var itens_label: Label
 var joystick: JoystickVirtual
 var dialogo: DialogueBox
 var pausa_painel: ColorRect
+var dica_save: Label
 
 
 func _ready() -> void:
@@ -25,7 +27,8 @@ func _ready() -> void:
 
 	joystick = $joystick as JoystickVirtual
 	# No PC (sem tela de toque) o joystick fica escondido: use WASD / setas.
-	joystick.visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile")
+	_joystick_base = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or GameData.eh_mobile
+	_aplicar_joystick()
 
 	dialogo = DialogueBox.new()
 	add_child(dialogo)
@@ -166,16 +169,33 @@ func mostrar_acao(alvo: Interagivel) -> void:
 	botao_acao.visible = alvo != null
 
 
-var _joystick_permitido := true
+var _joystick_base := true          ## o aparelho usa joystick? (tela de toque)
+var _motivos_escondido := {}        ## quem pediu para esconder o joystick (conversa, painel...)
 
-## Durante falas, some com o botão e o joystick (a caixa de texto fica no lugar deles).
-func modo_conversa(sim: bool) -> void:
+## Durante falas e painéis, some com o botão e o joystick.
+## v10 — BUG CORRIGIDO: antes o HUD "lembrava" se o joystick estava visível na hora
+## de esconder. Abrindo a MOCHILA e depois o CRIAR (ou fechando o CRIAR enquanto
+## algo era criado), ele lembrava "invisível" e o joystick sumia para sempre.
+## Agora cada pedido tem um MOTIVO; o joystick volta quando não sobra nenhum motivo.
+func modo_conversa(sim: bool, motivo := "conversa") -> void:
 	if sim:
-		_joystick_permitido = joystick.visible
+		_motivos_escondido[motivo] = true
 		botao_acao.visible = false
-		joystick.visible = false
 	else:
-		joystick.visible = _joystick_permitido
+		_motivos_escondido.erase(motivo)
+	_aplicar_joystick()
+
+
+func _aplicar_joystick() -> void:
+	if joystick == null:
+		return
+	joystick.visible = _joystick_base and _motivos_escondido.is_empty()
+
+
+## Segurança: limpa todos os motivos (ex.: depois de um teletransporte ou erro).
+func liberar_controles() -> void:
+	_motivos_escondido.clear()
+	_aplicar_joystick()
 
 
 # ---------------------------------------------------------------
@@ -219,6 +239,7 @@ func _criar_pausa() -> void:
 		vbox.add_child(b)
 
 	var dica := Label.new()
+	dica_save = dica
 	dica.text = "Seu progresso é salvo automaticamente."
 	dica.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dica.add_theme_font_size_override("font_size", 18)
@@ -227,11 +248,20 @@ func _criar_pausa() -> void:
 
 
 func pausar(sim: bool) -> void:
+	if sim:
+		pediu_salvar.emit()
 	pausa_painel.visible = sim
 	get_tree().paused = sim
 
 
+## Texto embaixo do menu de pausa (ex.: "Salvo: Dia 2 · 14:20").
+func info_save(texto: String) -> void:
+	if dica_save:
+		dica_save.text = texto
+
+
 func _on_menu() -> void:
+	pediu_salvar.emit()   # a fase atualiza o save ANTES de gravar (antes gravava dados velhos)
 	GameData.salvar_jogo()
 	pediu_menu.emit()
 	GameData.trocar_cena(GameData.CENA_MENU)
@@ -250,3 +280,5 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if is_inside_tree() and not pausa_painel.visible and OS.has_feature("mobile"):
 			pausar(true)
+		elif is_inside_tree():
+			pediu_salvar.emit()   # o Android pode fechar o app minimizado: salva antes

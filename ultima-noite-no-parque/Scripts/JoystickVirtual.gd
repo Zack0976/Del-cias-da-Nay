@@ -77,9 +77,16 @@ func _notification(what: int) -> void:
 		queue_redraw()
 	elif what == NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree() and _toque != -1:
 		_soltar()
+	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
+		# v10: minimizou o app com o dedo na tela → o "soltar" nunca chegava e o
+		# jogador ficava andando sozinho (ou o joystick travado). Agora solta sempre.
+		if _toque != -1:
+			_soltar()
 
 
 func _draw() -> void:
+	if not visible:
+		return
 	var ativo := _toque != -1
 	var alfa := 0.55 if ativo else 0.25
 	draw_circle(_centro, raio, Color(0.05, 0.05, 0.05, alfa * 0.8))

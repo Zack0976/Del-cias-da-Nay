@@ -196,13 +196,17 @@ func atualizar_status(s: StatusJogador) -> void:
 	for nome in valores:
 		barras[nome].value = valores[nome]
 		var r := StatusJogador.rotulo(valores[nome])
-		chips[nome].text = "" if r == "Normal" else r   # "Normal" não precisa aparecer
-		chips[nome].add_theme_color_override("font_color", Color("e06060") if r == "Crítico" else Color("e0a050"))
+		var novo := "" if r == "Normal" else r   # "Normal" não precisa aparecer
+		if chips[nome].text != novo:   # v10: só mexe no tema quando muda (antes: 20x por segundo)
+			chips[nome].text = novo
+			chips[nome].add_theme_color_override("font_color", Color("e06060") if r == "Crítico" else Color("e0a050"))
 		if r != "Normal":
 			avisos.append([nome, r])
 	_atualizar_alertas(avisos)
+	var antes := _estresse
 	_estresse = s.prejuizo_visao()
-	vinheta.queue_redraw()
+	if absf(antes - _estresse) > 0.005:
+		vinheta.queue_redraw()
 
 
 ## Barras escondidas: mostra só o que está baixo, ex.: "■ Fome" piscando em vermelho.
@@ -507,39 +511,108 @@ func atualizar_mochila() -> void:
 
 # ---------------------------------------------------------------
 # CRIAÇÃO
+# v10 — menu refeito:
+#  - antes a lista INTEIRA era apagada e recriada a cada item que entrava na
+#    mochila (a rolagem pulava para o topo, os botões piscavam e dava para tocar
+#    num botão que já tinha sido apagado). Agora cada receita tem a sua linha,
+#    criada uma vez só, e só o texto/estado dela muda.
+#  - abas: TUDO / MÃO / BANCADA / FOGO
+#  - o que dá para criar aparece primeiro; o botão diz o que falta
+#  - barra de progresso enquanto cria (e os botões ficam travados)
+#  - dá para rolar a lista arrastando o dedo por cima dos botões
 # ---------------------------------------------------------------
+var _linhas_receita := {}       ## id -> {linha, t1, t2, botao, receita}
+var _aba := "tudo"
+var _abas := {}
+var _criando := false
+var _barra_criar: ProgressBar
+var _rotulo_criar: Label
+var _rolagem: ScrollContainer
+var _vazio_lbl: Label
+
+
 func _criar_criacao() -> void:
 	criacao = PanelContainer.new()
 	criacao.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	criacao.offset_left = -420
-	criacao.offset_right = 420
-	criacao.offset_top = -300
-	criacao.offset_bottom = 300
-	criacao.add_theme_stylebox_override("panel", _caixa(Color(0.04, 0.04, 0.05, 0.95)))
+	criacao.offset_left = -430
+	criacao.offset_right = 430
+	criacao.offset_top = -310
+	criacao.offset_bottom = 310
+	criacao.add_theme_stylebox_override("panel", _caixa(Color(0.04, 0.04, 0.05, 0.96)))
 	criacao.visible = false
 	add_child(criacao)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	criacao.add_child(v)
 	var topo := HBoxContainer.new()
+	topo.add_theme_constant_override("separation", 8)
 	v.add_child(topo)
 	topo.add_child(_label("CRIAR", 28, Color(0.8, 0.2, 0.2)))
-	_info_bancada = _label("", 18)
+	_info_bancada = _label("", 17)
 	_info_bancada.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_info_bancada.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	topo.add_child(_info_bancada)
-	var rolagem := ScrollContainer.new()
-	rolagem.custom_minimum_size = Vector2(800, 460)
-	rolagem.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	v.add_child(rolagem)
+	var b_x := _botao("X", Vector2(54, 44), 22)
+	b_x.pressed.connect(func(): abrir_criacao(false))
+	topo.add_child(b_x)
+	# abas
+	var abas := HBoxContainer.new()
+	abas.add_theme_constant_override("separation", 6)
+	v.add_child(abas)
+	for d in [["tudo", "TUDO"], ["mao", "NA MÃO"], ["bancada", "BANCADA"], ["fogo", "NO FOGO"]]:
+		var b := _botao(d[1], Vector2(150, 46), 18)
+		b.toggle_mode = true
+		b.button_pressed = d[0] == _aba
+		var sel := _caixa(Color(0.3, 0.07, 0.07, 0.95), Color(0.9, 0.3, 0.2))
+		sel.content_margin_left = 6
+		sel.content_margin_right = 6
+		b.add_theme_stylebox_override("pressed", sel)
+		b.pressed.connect(_escolher_aba.bind(d[0]))
+		abas.add_child(b)
+		_abas[d[0]] = b
+	_rolagem = ScrollContainer.new()
+	_rolagem.custom_minimum_size = Vector2(820, 410)
+	_rolagem.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_rolagem.scroll_deadzone = 12
+	v.add_child(_rolagem)
 	_lista_receitas = VBoxContainer.new()
 	_lista_receitas.add_theme_constant_override("separation", 6)
 	_lista_receitas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rolagem.add_child(_lista_receitas)
-	var b_fechar := _botao("FECHAR", Vector2(160, 54))
-	b_fechar.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_lista_receitas.mouse_filter = Control.MOUSE_FILTER_PASS
+	_rolagem.add_child(_lista_receitas)
+	_vazio_lbl = _label("Nada para criar aqui ainda.", 18, Color(0.6, 0.6, 0.6))
+	_lista_receitas.add_child(_vazio_lbl)
+	# barra de progresso (aparece enquanto cria)
+	var baixo := HBoxContainer.new()
+	baixo.add_theme_constant_override("separation", 10)
+	v.add_child(baixo)
+	_rotulo_criar = _label("", 18)
+	_rotulo_criar.custom_minimum_size = Vector2(260, 0)
+	baixo.add_child(_rotulo_criar)
+	_barra_criar = ProgressBar.new()
+	_barra_criar.show_percentage = false
+	_barra_criar.custom_minimum_size = Vector2(300, 14)
+	_barra_criar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_barra_criar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var fundo := StyleBoxFlat.new()
+	fundo.bg_color = Color(0.15, 0.15, 0.15)
+	var cheio := StyleBoxFlat.new()
+	cheio.bg_color = Color("c9a04a")
+	_barra_criar.add_theme_stylebox_override("background", fundo)
+	_barra_criar.add_theme_stylebox_override("fill", cheio)
+	_barra_criar.visible = false
+	baixo.add_child(_barra_criar)
+	var b_fechar := _botao("FECHAR", Vector2(160, 50))
 	b_fechar.pressed.connect(func(): abrir_criacao(false))
-	v.add_child(b_fechar)
+	baixo.add_child(b_fechar)
+
+
+func _escolher_aba(aba: String) -> void:
+	_aba = aba
+	for k in _abas:
+		_abas[k].set_pressed_no_signal(k == aba)
+	_rolagem.scroll_vertical = 0
+	atualizar_criacao()
 
 
 func abrir_criacao(sim: bool) -> void:
@@ -551,6 +624,60 @@ func abrir_criacao(sim: bool) -> void:
 	botao_mochila_aberta.emit(sim or mochila.visible)
 
 
+## Cria (uma vez só) a linha de uma receita.
+func _linha_receita(r: Dictionary) -> Dictionary:
+	if _linhas_receita.has(r["id"]):
+		return _linhas_receita[r["id"]]
+	var linha := HBoxContainer.new()
+	linha.add_theme_constant_override("separation", 10)
+	linha.mouse_filter = Control.MOUSE_FILTER_PASS
+	var ic := TextureRect.new()
+	ic.texture = Itens.icone(r["da"])
+	ic.custom_minimum_size = Vector2(46, 46)
+	ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	ic.mouse_filter = Control.MOUSE_FILTER_PASS
+	linha.add_child(ic)
+	var txt := VBoxContainer.new()
+	txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	txt.mouse_filter = Control.MOUSE_FILTER_PASS
+	var onde := ""
+	if r["bancada"]:
+		onde = "  [bancada]"
+	elif r.get("fogo", false):
+		onde = "  [no fogo]"
+	var t1 := _label("%s%s%s" % [Itens.nome(r["da"]), (" x%d" % r["qtd"]) if r["qtd"] > 1 else "", onde], 20)
+	txt.add_child(t1)
+	var t2 := RichTextLabel.new()
+	t2.bbcode_enabled = true
+	t2.fit_content = true
+	t2.scroll_active = false
+	t2.mouse_filter = Control.MOUSE_FILTER_PASS
+	t2.custom_minimum_size = Vector2(420, 0)
+	t2.add_theme_font_size_override("normal_font_size", 16)
+	t2.add_theme_color_override("default_color", Color(0.7, 0.68, 0.6))
+	txt.add_child(t2)
+	linha.add_child(txt)
+	var b := _botao("CRIAR", Vector2(170, 52), 18)
+	b.mouse_filter = Control.MOUSE_FILTER_PASS   # deixa a lista rolar arrastando por cima
+	b.pressed.connect(func():
+		if not _criando and not b.disabled:
+			criar_receita.emit(r))
+	linha.add_child(b)
+	_lista_receitas.add_child(linha)
+	var d := {"linha": linha, "t2": t2, "botao": b, "receita": r}
+	_linhas_receita[r["id"]] = d
+	return d
+
+
+func _aba_da_receita(r: Dictionary) -> String:
+	if r["bancada"]:
+		return "bancada"
+	if r.get("fogo", false):
+		return "fogo"
+	return "mao"
+
+
 func atualizar_criacao() -> void:
 	if not criacao.visible or not fonte_receitas.is_valid():
 		return
@@ -559,35 +686,46 @@ func atualizar_criacao() -> void:
 	var perto: bool = dados[1]
 	var fogo: bool = dados[2] if dados.size() > 2 else false
 	_info_bancada.text = ("Bancada: PERTO" if perto else "Bancada: longe") + ("  ·  Fogo: PERTO" if fogo else "  ·  Fogo: longe")
-	for c in _lista_receitas.get_children():
-		c.queue_free()
+	var ids_visiveis := {}
+	var podem: Array = []
+	var nao_podem: Array = []
 	for r in receitas:
-		var linha := HBoxContainer.new()
-		linha.add_theme_constant_override("separation", 10)
-		var ic := TextureRect.new()
-		ic.texture = Itens.icone(r["da"])
-		ic.custom_minimum_size = Vector2(44, 44)
-		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		linha.add_child(ic)
-		var txt := VBoxContainer.new()
-		txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var onde := ""
-		if r["bancada"]:
-			onde = "  [bancada]"
-		elif r.get("fogo", false):
-			onde = "  [no fogo]"
-		var t1 := _label("%s%s%s" % [Itens.nome(r["da"]), (" x%d" % r["qtd"]) if r["qtd"] > 1 else "", onde], 20)
-		txt.add_child(t1)
-		var t2 := _label(Receitas.texto_ingredientes(r, inv), 16, Color(0.7, 0.68, 0.6))
-		t2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		txt.add_child(t2)
-		linha.add_child(txt)
-		var b := _botao("CRIAR", Vector2(120, 52), 20)
-		b.disabled = not Receitas.pode_criar(r, inv, perto, fogo)
-		b.pressed.connect(func(): criar_receita.emit(r))
-		linha.add_child(b)
-		_lista_receitas.add_child(linha)
+		if _aba != "tudo" and _aba_da_receita(r) != _aba:
+			continue
+		ids_visiveis[r["id"]] = true
+		var d := _linha_receita(r)
+		var ok := Receitas.pode_criar(r, inv, perto, fogo)
+		d["t2"].text = Receitas.texto_ingredientes_bb(r, inv)
+		var b: Button = d["botao"]
+		b.disabled = not ok or _criando
+		b.text = "CRIAR" if ok else Receitas.motivo(r, inv, perto, fogo)
+		(podem if ok else nao_podem).append(d)
+	for id in _linhas_receita:
+		_linhas_receita[id]["linha"].visible = ids_visiveis.has(id)
+	# o que dá para criar vem primeiro (sem recriar nada: só muda a ordem)
+	var pos := 1
+	for d in podem + nao_podem:
+		_lista_receitas.move_child(d["linha"], pos)
+		pos += 1
+	_vazio_lbl.visible = ids_visiveis.is_empty()
+
+
+## Mostra a barra enchendo enquanto cria. Os botões ficam travados até acabar.
+func mostrar_criando(nome: String, tempo: float) -> void:
+	_criando = true
+	_rotulo_criar.text = "Criando %s..." % nome
+	_barra_criar.visible = true
+	_barra_criar.value = 0
+	var tw := create_tween()
+	tw.tween_property(_barra_criar, "value", 100.0, maxf(tempo, 0.05))
+	atualizar_criacao()
+
+
+func terminou_criar(texto: String) -> void:
+	_criando = false
+	_barra_criar.visible = false
+	_rotulo_criar.text = texto
+	atualizar_criacao()
 
 
 func painel_aberto() -> bool:
@@ -721,9 +859,14 @@ func _criar_vinheta() -> void:
 	add_child(vinheta)
 
 
+var _acum_vinheta := 0.0
+
 func _process(delta: float) -> void:
 	_vultos_t += delta
-	if _estresse > 0.05:
+	# v10: os vultos piscam 10x por segundo (antes: redesenhava 60x por segundo)
+	_acum_vinheta += delta
+	if _estresse > 0.45 and _acum_vinheta >= 0.1:
+		_acum_vinheta = 0.0
 		vinheta.queue_redraw()
 
 

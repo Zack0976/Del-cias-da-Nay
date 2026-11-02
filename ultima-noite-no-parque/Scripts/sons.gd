@@ -31,7 +31,15 @@ const TODOS := ["vento", "chiado", "grilos", "fogueira", "drone", "motor", "cliq
 const PASTA_PRONTOS := "res://Sons/gerados/"
 
 ## No Mali-G68, WAV grandes em loop crasham o motor. Só estes são seguros:
-const SONS_LEVES_MOBILE := ["clique", "batida", "passo", "galho", "item", "grito", "rangido"]
+const SONS_LEVES_MOBILE := ["clique", "batida", "passo", "galho", "item", "grito", "rangido",
+	# v10: sons curtos novos (WAV pequenos, tocam uma vez só — seguros no Mali)
+	"machado", "arvore_cai", "agua", "sapo", "coracao", "sussurro", "papel", "cama", "rajada", "peixe"]
+## v10: sons novos que vêm como .wav prontos (feitos por ferramentas/gerar_sons_v10.py)
+const SONS_WAV := ["machado", "arvore_cai", "agua", "sapo", "coracao", "sussurro", "papel", "cama", "rajada", "peixe"]
+## v10: no máximo tantos efeitos tocando ao mesmo tempo (protege o áudio do celular)
+const MAX_EFEITOS_MOBILE := 8
+const MAX_EFEITOS_PC := 16
+static var _efeitos: Array = []
 ## Sons pesados (nunca em loop no mobile):
 const SONS_PESADOS := ["vento", "drone", "violao", "fogueira", "chiado", "grilos", "motor", "grito", "coruja", "despertador", "microfonia", "rangido"]
 
@@ -43,8 +51,8 @@ static func _do_cache(nome: String) -> AudioStreamWAV:
 	_trava.unlock()
 	if s:
 		return s
-	# 1º lugar: o som pronto que vem junto com o jogo
-	var pronto := PASTA_PRONTOS + nome + ".res"
+	# 1º lugar: o som pronto que vem junto com o jogo (.res antigos ou .wav novos)
+	var pronto := PASTA_PRONTOS + nome + (".wav" if nome in SONS_WAV else ".res")
 	if ResourceLoader.exists(pronto):
 		s = load(pronto) as AudioStreamWAV
 		if s:
@@ -181,6 +189,19 @@ static func tocar(dono: Node, som, volume_db := 0.0, tom := 1.0, barramento := "
 	if stream == null:
 		p.queue_free()
 		return p
+	# v10: limite de efeitos simultâneos (o mais velho para de tocar)
+	var vivos: Array = []
+	for e in _efeitos:
+		if is_instance_valid(e) and e.playing:
+			vivos.append(e)
+	_efeitos = vivos
+	var limite := MAX_EFEITOS_MOBILE if GameData.eh_mobile else MAX_EFEITOS_PC
+	while _efeitos.size() >= limite:
+		var velho = _efeitos.pop_front()
+		if is_instance_valid(velho):
+			velho.stop()
+			velho.queue_free()
+	_efeitos.append(p)
 	p.stream = stream
 	p.volume_db = volume_db
 	p.pitch_scale = tom

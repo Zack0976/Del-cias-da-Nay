@@ -90,6 +90,8 @@ var luz_dentro := false:  ## tem luz acesa dentro da cabana? (aparece pela janel
 var limites_solidos := Rect2()
 var agua: AguaLago
 var troncos: Array = []                ## base de cada árvore sólida (colisão e luz)
+var arvores_sprites: Array = []        ## v10: o sprite de cada tronco (mesma ordem) — para CORTAR
+var camada_sombras: Node2D
 var enfeites_coletaveis: Array = []    ## [tipo, posição] — o controlador cria os coletáveis
 const ENFEITES_DE_PEGAR := ["toco", "tronco_caido", "galhos", "pedra_m"]
 
@@ -112,6 +114,7 @@ func _ready() -> void:
 	var chao := Node2D.new()
 	chao.name = "Chao"
 	chao.show_behind_parent = true
+	chao.z_index = -5   # v10: fica embaixo das sombras (z -2)
 	chao.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	chao.draw.connect(_desenhar_chao.bind(chao))
 	add_child(chao)
@@ -120,6 +123,11 @@ func _ready() -> void:
 	agua = AguaLago.new()
 	agua.name = "AguaLago"
 	add_child(agua)
+
+	# v10: camada das sombras das árvores (entre o chão e os objetos em pé)
+	camada_sombras = Node2D.new()
+	camada_sombras.name = "Sombras"
+	add_child(camada_sombras)
 
 	arvores = Node2D.new()
 	arvores.name = "Objetos"
@@ -322,6 +330,7 @@ func _nova_arvore(p: Vector2, variante: int, espelhar: bool, tom: float) -> Spri
 	arv.modulate = Color(tom, tom * 1.03, tom)
 	arvores.add_child(arv)
 	troncos.append(p)
+	arvores_sprites.append(arv)
 	return arv
 
 
@@ -580,6 +589,13 @@ func _desenhar_farois(n: Node2D) -> void:
 
 
 ## Troncos das árvores e paredes da cabana: bloqueiam a luz dos faróis.
+## v10: árvore cortada não bloqueia mais a luz dos faróis.
+func tirar_obstaculo(indice: int) -> void:
+	obstaculos_luz()
+	if indice >= 0 and indice < _obstaculos_cache.size():
+		_obstaculos_cache[indice][1] = 0.0
+
+
 func obstaculos_luz() -> Array:
 	if _obstaculos_cache.is_empty():
 		# o tronco (e a parte de baixo da copa) bloqueiam a luz

@@ -45,6 +45,10 @@ func _ready() -> void:
 	var raio := 12.0 if visual != "tronco_caido" else 16.0
 	interagivel = Interagivel.criar("coletar_" + item, Vector2(0, -3), raio, "PEGAR")
 	add_child(interagivel)
+	_sprite.modulate = Color(1.15, 1.15, 1.1)
+	# v10 OTIMIZAÇÃO: o brilho só "pulsa" nos itens perto do jogador. O controlador
+	# liga o _process só neles (antes TODOS os ~150 itens do mapa rodavam a cada quadro).
+	set_process(false)
 
 
 func _process(delta: float) -> void:

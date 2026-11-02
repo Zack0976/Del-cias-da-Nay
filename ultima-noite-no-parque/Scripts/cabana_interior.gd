@@ -156,6 +156,7 @@ func _criar_estatico() -> void:
 	_estatico = Node2D.new()
 	_estatico.name = "Estatico"
 	_estatico.show_behind_parent = true
+	_estatico.z_index = -5   # v10: o chão fica embaixo das sombras (z -2)
 	_estatico.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	_estatico.draw.connect(_desenhar_estatico.bind(_estatico))
 	add_child(_estatico)

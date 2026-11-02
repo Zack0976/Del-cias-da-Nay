@@ -45,6 +45,15 @@ const DADOS := {
 	"vara_pescar": {"nome": "Vara de pescar", "pilha": 1, "tipo": "ferramenta", "desc": "Chegue na beira do lago e escolha PESCAR. Aguenta 12 pescarias."},
 	"peixe_assado": {"nome": "Peixe assado", "pilha": 4, "tipo": "consumo", "desc": "Delicioso. (+40 fome, +5 vida)"},
 	"ensopado":  {"nome": "Ensopado", "pilha": 2, "tipo": "consumo", "desc": "Comida quente. (+50 fome, +15 vida, +20 energia)"},
+	# --- v10 ---
+	"machado":   {"nome": "Machado de pedra", "pilha": 1, "tipo": "ferramenta", "desc": "Chegue perto de uma árvore e toque em CORTAR (+madeira). Também serve de arma (18 de dano). Aguenta 15 cortes."},
+	"machado_ferro": {"nome": "Machado de ferro", "pilha": 1, "tipo": "ferramenta", "desc": "Corta árvores com 2 golpes e é uma arma boa (30 de dano). Aguenta 40 cortes."},
+	"bandagem":  {"nome": "Bandagem", "pilha": 5, "tipo": "consumo", "desc": "Curativo rápido feito de pano. (+15 vida)"},
+	"isca":      {"nome": "Isca", "pilha": 9, "tipo": "recurso", "desc": "Com isca na mochila o peixe morde mais rápido e às vezes vem um PEIXE GRANDE."},
+	"covo":      {"nome": "Covo (armadilha de peixe)", "pilha": 2, "tipo": "colocar", "desc": "Coloque na beira do lago (LAGO → COLOCAR COVO). Pega peixes sozinho com o tempo."},
+	"peixe_grande": {"nome": "Peixe grande", "pilha": 2, "tipo": "consumo", "desc": "Um peixe enorme. Asse no fogo! Cru: +18 fome, pode fazer mal."},
+	"fruta_assada": {"nome": "Fruta assada", "pilha": 6, "tipo": "consumo", "desc": "Docinha e quente. (+25 fome, -5 estresse)"},
+	"pagina":    {"nome": "Página do diário", "pilha": 6, "tipo": "recurso", "desc": "Páginas do caderno do Lucas. Use para ler."},
 	"cha":       {"nome": "Chá de ervas", "pilha": 3, "tipo": "consumo", "desc": "Acalma a mente. (-35 estresse, +10 energia)"},
 	# --- itens da Parte 1 ---
 	"lanterna":  {"nome": "Lanterna", "pilha": 1, "tipo": "luz", "desc": "Da Marina. Gasta bateria."},
@@ -155,6 +164,45 @@ static func icone(id: String) -> Texture2D:
 			r.caixa(Rect2(2, 4, 12, 4), 2, 1, "pano")
 			r.caixa(Rect2(2, 8, 12, 4), 2, 0, "pano")
 			r.caixa(Rect2(3, 11, 11, 3), 2, 0.5, "pano")
+		"machado", "machado_ferro":
+			r.tubo(Vector2(3, 14.5), Vector2(10.5, 3.5), 1.1, 1.1, 0, "madeira")
+			var lamina := "pedra" if id == "machado" else "metal"
+			r.bola(Vector2(11, 4.5), Vector2(3.6, 2.8), 2.2, 1.5, lamina)
+			r.tubo(Vector2(9, 2), Vector2(14.5, 7.5), 1.2, 1.0, 1.5, lamina)
+			r.tubo(Vector2(9.5, 4.5), Vector2(11, 6), 0.9, 0.9, 3, "corda")
+		"bandagem":
+			for k in 9:
+				var ang := TAU * k / 9.0
+				r.bola(Vector2(8, 8) + Vector2(cos(ang) * 3.2, sin(ang) * 3.2), Vector2(2.4, 2.4), 2.0, 0, "branco")
+			r.bola(Vector2(8, 8), Vector2(1.6, 1.6), 1, 1, "pano")
+			r.tubo(Vector2(10, 11), Vector2(14.5, 14), 1.4, 1.2, 0.5, "branco")
+			r.caixa(Rect2(11.5, 11.5, 2, 1), 0.5, 2, "vermelho")
+		"isca":
+			r.curva(Vector2(3, 11), Vector2(8, 4), Vector2(13, 11), 1.3, 1.0, 0, "vermelho", 6)
+			r.curva(Vector2(5, 13), Vector2(9, 9), Vector2(13, 14), 1.0, 0.8, 0.5, "assado", 5)
+		"covo":
+			r.caixa(Rect2(2, 4, 12, 10), 4, 0, "madeira", 3)
+			for x in [4, 7, 10, 13]:
+				for y in range(5, 14):
+					r.pintar(Vector2(x, y), "corda", 0.6)
+			r.bola(Vector2(3, 9), Vector2(1.6, 2.5), 1, 4, "preto")
+		"pagina":
+			r.caixa(Rect2(3, 2, 10, 13), 1, 0, "branco", 1)
+			for y in [5, 7, 9, 11]:
+				for x in range(5, 11):
+					r.pintar(Vector2(x, y), "azul", 0.2)
+			r.pintar(Vector2(11, 13), "vermelho", 0.3)
+		"fruta_assada":
+			r.bola(Vector2(6, 10), Vector2(3, 3), 3, 0, "assado")
+			r.bola(Vector2(10.5, 9), Vector2(3, 3), 3, 0.5, "assado")
+			r.tubo(Vector2(1, 14), Vector2(15, 4), 0.6, 0.6, 3.5, "madeira")
+		"peixe_grande":
+			r.bola(Vector2(7, 8), Vector2(6.5, 4.2), 3.5, 0, "peixe")
+			r.tubo(Vector2(12.5, 8), Vector2(15, 4), 1.8, 0.7, 0, "peixe")
+			r.tubo(Vector2(12.5, 8), Vector2(15, 12), 1.8, 0.7, 0, "peixe")
+			r.pintar(Vector2(3, 7), "olho", 3.6)
+			for x in [6, 9]:
+				r.pintar(Vector2(x, 10), "ouro", 3.5)
 		"peixe", "peixe_assado":
 			var m := "peixe" if id == "peixe" else "assado"
 			r.bola(Vector2(7, 8), Vector2(5.5, 3), 3, 0, m)

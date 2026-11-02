@@ -64,7 +64,8 @@ var arma_equipada := ""                ## "", "estaca" ou "bastao"
 var lanterna_ligada := false
 var lanterna_bateria := 100.0
 var tocha_tempo := 0.0
-var golpes := 0                        ## golpes dados com a arma atual (ela gasta)
+var desgaste := {}                     ## v10: id da ferramenta/arma -> quantas vezes foi usada
+const LIMITE_USO := {"estaca": 8, "lanca": 15, "machado": 15, "machado_ferro": 40, "bastao": 30}
 var luz_mao: FonteLuz
 var usos_vara := 0
 var pescando := false
@@ -95,6 +96,32 @@ var _fade: ColorRect
 var _flash: ColorRect
 var _rng := RandomNumberGenerator.new()
 var registro: Array[String] = []        ## o que aconteceu (ajuda nos testes)
+
+# v10
+var sombras: Sombras
+var arvores_cortadas: Array = []       ## índices (ext.troncos) das árvores derrubadas
+var _golpes_arvore := {}
+var _alvo_corte: Interagivel           ## UM interagível que "pula" para a árvore mais perto
+var _arvore_alvo := -1
+var _deitado := false
+var cartazes_lidos: Array = []
+var paginas_lidas := 0
+var barco_vasculhado := false
+var covos: Array = []                  ## [x, y, peixes]
+var _covo_nodes: Array = []
+var lucas_visto_dia := 0
+var _lucas: LucasVulto
+var _t_autosave := 0.0
+var _t_ambiente := 10.0
+var _t_coracao := 0.0
+var _silencioso := false               ## carregando o save: sem avisos nem sons
+const PAGINAS := [
+	"Página rasgada, com a letra do Lucas: \"Dia 1. A gente chegou. O lugar é incrível. A Marina tá com medo de tudo, kkk.\"",
+	"\"Acordei de madrugada. Tinha alguém batendo na porta, devagar. Três batidas. Ninguém mais ouviu.\"",
+	"\"Vi uma luz no lago. Parecia uma lanterna. Parecia que alguém me chamava pelo nome.\"",
+	"\"Se alguém achar isso: NÃO sigam a luz do lago. Fiquem perto do fogo. Eu tô bem. Eu acho.\"",
+	"A última página só tem uma frase, escrita várias vezes: \"eles não entram onde tem luz\".",
+]
 
 
 # ===============================================================
@@ -156,6 +183,15 @@ func _ready() -> void:
 		player._glow.energia = 0.55
 
 	player.collision_mask = 1 | CAMADA_GRADE   # o jogador bate na grade da varanda (monstros não)
+	# v10: sombras dinâmicas (leves) + objetos novos do mapa
+	sombras = Sombras.new()
+	sombras.name = "Sombras"
+	sombras.interior_x = INTERIOR.x - 500.0
+	add_child(sombras)
+	sombras.preparar_arvores(ext.camada_sombras, ext.troncos)
+	sombras.adicionar(player, 1.0, 1.0)
+	_criar_objetos_v10()
+	hud.pediu_salvar.connect(func(): salvar_agora("pausa"))
 	_carregar()
 	_colocar_jogador_fora(Vector2(760, -60))
 	_criar_coletaveis_do_chao()
@@ -354,6 +390,7 @@ func _intro() -> void:
 	await hud.dialogo.mensagem("Antes de escurecer: pregue tábuas na porta e nas janelas. Toda manhã elas racham e precisam de reforço.")
 	await hud.dialogo.mensagem("A luz é sua melhor arma. O barulho é seu pior inimigo.")
 	GameData.parte2["viu_intro"] = true
+	_salvar()   # v10: antes a intro repetia se você saísse no primeiro dia
 	hud.modo_conversa(false)
 	_ocupado = false
 	player.definir_pode_mover(true)
@@ -366,6 +403,8 @@ func _intro() -> void:
 func _physics_process(delta: float) -> void:
 	if _fim or mundo == null or ciclo == null:
 		return
+	if _deitado:
+		_atualizar_deitado(delta)
 	_movimento(delta)
 	_luzes(delta)
 	_t_ataque = maxf(_t_ataque - delta, 0.0)
@@ -388,6 +427,8 @@ func _physics_process(delta: float) -> void:
 		return
 	_ruido_do_jogador(delta)
 	_pressao_da_noite(delta)
+	_sons_ambiente(delta)
+	_autosave(delta)
 
 	_t_hud += delta
 	if _t_hud > 0.2:
@@ -396,6 +437,8 @@ func _physics_process(delta: float) -> void:
 		_atualizar_ambiente()
 		_conferir_monstros()
 		_destacar_coletavel()
+		_procurar_arvore()
+		sombras.hora = ciclo.hora
 
 
 func _movimento(_delta: float) -> void:
@@ -542,6 +585,8 @@ func ferir_jogador(dano: float, m: Node) -> void:
 			hs.avisar("O Colosso arrancou você do carro!")
 		else:
 			return
+	if _deitado:
+		levantar()
 	status.vida = maxf(status.vida - dano, 0.0)
 	status.estresse = minf(status.estresse + 8.0, 100.0)
 	registro.append("dano:%s" % m.tipo_monstro)
@@ -570,11 +615,13 @@ func _mudou_fase(fase: String) -> void:
 			hs.anunciar("ESTÁ ESCURECENDO", Color(0.95, 0.6, 0.3))
 			hs.avisar("Volte para a cabana e reforce portas e janelas!")
 		"noite":
+			ext.agua.vagalumes = true
 			hs.anunciar("NOITE %d" % ciclo.noite_numero())
 			Sons.tocar(self, "coruja", -6.0, 0.9)
 			_spawn_da_hora(19)
 			spawnar_lago()
 		"amanhecer":
+			ext.agua.vagalumes = false
 			hs.anunciar("AMANHECENDO", Color(0.95, 0.8, 0.5))
 			for m in get_tree().get_nodes_in_group("monstro"):
 				m.ir_embora()
@@ -586,6 +633,11 @@ func _mudou_fase(fase: String) -> void:
 func _hora_cheia(h: int) -> void:
 	if ciclo.eh_noite() and h != 19:
 		_spawn_da_hora(h)
+	_covos_hora()
+	_talvez_lucas(h)
+	# v10: autosave de hora em hora de dia (de noite só se estiver seguro)
+	if not ciclo.eh_noite() or _em_seguranca():
+		salvar_agora("hora")
 
 
 func _novo_dia(dia: int) -> void:
@@ -646,6 +698,8 @@ func spawnar(tipo: String, pos := Vector2.INF) -> Monstro:
 				break
 	var m := Monstro.criar(tipo, pos, self)
 	ext.arvores.add_child(m)
+	if tipo != "sombra":   # a Sombra é fumaça: não faz sombra
+		sombras.adicionar(m, 1.4 if tipo == "colosso" else 1.0, 1.6 if tipo == "observador" else 1.0)
 	registro.append("spawn:" + tipo)
 	return m
 
@@ -739,14 +793,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		hs.abrir_criacao(not hs.criacao.visible)
 
 
+## v10 — BUG CORRIGIDO (joystick sumindo):
+##  antes, fechar o painel enquanto algo era criado ("_ocupado") saía da função
+##  ANTES de devolver o joystick. Agora a interface SEMPRE volta; só o movimento
+##  espera a ação terminar (quem termina a ação devolve o movimento).
 func _painel_aberto(sim: bool) -> void:
 	_painel = sim
-	if _ocupado and not sim:
-		return
-	player.definir_pode_mover(not sim and not jogador_escondido)
-	hud.modo_conversa(sim)
+	hud.modo_conversa(sim, "painel")
 	if not sim:
 		hud.mostrar_acao(player.alvo)
+	if _ocupado or _deitado:
+		return
+	player.definir_pode_mover(not sim and not jogador_escondido)
 
 
 func _on_examinar() -> void:
@@ -760,6 +818,12 @@ func _on_examinar() -> void:
 func interagir(id: String, alvo: Interagivel = null) -> void:
 	if id.begins_with("coletar_"):
 		_coletar(alvo.get_parent() as Coletavel)
+		return
+	if id.begins_with("cartaz_"):
+		await _ler_cartaz(int(id.trim_prefix("cartaz_")))
+		return
+	if id.begins_with("covo_"):
+		_mexer_covo(int(id.trim_prefix("covo_")))
 		return
 	match id:
 		"entrar":
@@ -784,7 +848,16 @@ func interagir(id: String, alvo: Interagivel = null) -> void:
 				"PREGAR TÁBUAS (+50)": reforcar("janela_dir", "barricada")
 				"REFORÇO DE METAL (+100)": reforcar("janela_dir", "reforco")
 		"cama":
-			await dormir()
+			var op: Array = ["DEITAR (acalma a mente)", "DORMIR (passa o tempo)"]
+			var r := await hs.escolher("CAMA", op)
+			if r.begins_with("DEITAR"):
+				deitar()
+			elif r.begins_with("DORMIR"):
+				await dormir()
+		"cortar":
+			cortar_arvore()
+		"barco":
+			_vasculhar_barco()
 		"lareira":
 			acender_lareira()
 		"despensa":
@@ -796,17 +869,21 @@ func interagir(id: String, alvo: Interagivel = null) -> void:
 		"lago":
 			var op: Array = ["BEBER ÁGUA"]
 			if inv.tem("vara_pescar"):
-				op.push_front("PESCAR")
+				op.push_front("PESCAR" + (" (com isca)" if inv.tem("isca") else ""))
 			else:
 				hs.avisar("Dica: crie uma VARA DE PESCAR (2 madeira + 1 corda).")
+			if inv.tem("covo"):
+				op.append("COLOCAR COVO")
 			var r := await hs.escolher("LAGO", op)
+			if r == "COLOCAR COVO":
+				_colocar_covo()
 			if r == "BEBER ÁGUA":
 				status.energia = minf(status.energia + 15.0, 100.0)
 				Sons.tocar(self, "passo", -6.0, 0.6)
 				ext.agua.respingo(_ponto_lago_perto(), 0.8)
 				ruido(player.global_position, 30.0)
 				hs.avisar("Você bebe a água gelada do lago e desperta. (+15 energia)")
-			elif r == "PESCAR":
+			elif r.begins_with("PESCAR"):
 				await pescar()
 		"fogueira":
 			acender_fogueira()
@@ -836,8 +913,9 @@ func _entrar() -> void:
 	_atualizar_ambiente()
 	await _fazer_fade(0.0, 0.25)
 	_ocupado = false
-	player.definir_pode_mover(true)
+	player.definir_pode_mover(not _painel)
 	_atualizar_objetivo()
+	salvar_agora("entrou")
 
 
 func _sair() -> void:
@@ -849,8 +927,9 @@ func _sair() -> void:
 	_atualizar_ambiente()
 	await _fazer_fade(0.0, 0.25)
 	_ocupado = false
-	player.definir_pode_mover(true)
+	player.definir_pode_mover(not _painel)
 	_atualizar_objetivo()
+	salvar_agora("saiu")
 
 
 func _colocar_jogador_fora(pos: Vector2) -> void:
@@ -890,6 +969,8 @@ func _fazer_fade(alvo: float, tempo: float) -> void:
 func cortina(fechada: bool) -> void:
 	cab.cortina_fechada = fechada
 	ext.cortina_fechada = fechada
+	if _silencioso:
+		return
 	Sons.tocar(self, "rangido", -14.0, 1.8)
 	hs.avisar("Cortina fechada." if fechada else "Cortina aberta.")
 
@@ -918,15 +999,17 @@ func _abertura_quebrou(a: Abertura) -> void:
 		tremer_tela(5.0)
 
 
-func acender_fogueira() -> bool:
+## gratis = true: usado ao carregar o save (a fogueira já estava acesa).
+func acender_fogueira(gratis := false) -> bool:
 	if fogueira_luz and fogueira_luz.ativa():
 		hs.avisar("A fogueira já está acesa.")
 		return false
-	if not (inv.tem("madeira", 2) and inv.tem("fosforos")):
-		hs.avisar("Precisa de 2 Madeira e 1 Fósforo.")
-		return false
-	inv.remover("madeira", 2)
-	inv.remover("fosforos")
+	if not gratis:
+		if not (inv.tem("madeira", 2) and inv.tem("fosforos")):
+			hs.avisar("Precisa de 2 Madeira e 1 Fósforo.")
+			return false
+		inv.remover("madeira", 2)
+		inv.remover("fosforos")
 	if fogueira_luz == null:
 		fogueira_luz = FonteLuz.criar(90.0, Color(1.0, 0.55, 0.2, 0.5), -1.0, 0.18)
 		fogueira_luz.position = ParqueExterior.PONTOS["fogueira"] + Vector2(0, -4)
@@ -935,20 +1018,22 @@ func acender_fogueira() -> bool:
 	fogueira_luz.duracao = 160.0       # ~8 horas do jogo
 	fogueira_luz.ligada = true
 	ext.fogueira_acesa = true
-	Sons.tocar(self, "clique", -4.0, 0.7)
-	hs.avisar("Fogueira acesa! Luz forte lá fora por ~8 horas.")
+	if not _silencioso:
+		Sons.tocar(self, "clique", -4.0, 0.7)
+		hs.avisar("Fogueira acesa! Luz forte lá fora por ~8 horas.")
 	return true
 
 
-func acender_lareira() -> bool:
+func acender_lareira(gratis := false) -> bool:
 	if lareira_luz and lareira_luz.ativa():
 		hs.avisar("A lareira já está acesa.")
 		return false
-	if not (inv.tem("madeira", 2) and inv.tem("fosforos")):
-		hs.avisar("Precisa de 2 Madeira e 1 Fósforo.")
-		return false
-	inv.remover("madeira", 2)
-	inv.remover("fosforos")
+	if not gratis:
+		if not (inv.tem("madeira", 2) and inv.tem("fosforos")):
+			hs.avisar("Precisa de 2 Madeira e 1 Fósforo.")
+			return false
+		inv.remover("madeira", 2)
+		inv.remover("fosforos")
 	if lareira_luz == null:
 		lareira_luz = FonteLuz.criar(10.0, Color(0, 0, 0, 0))   # o brilho já é da cabana
 		lareira_luz.position = Vector2(22, 104)
@@ -959,7 +1044,8 @@ func acender_lareira() -> bool:
 	lareira_luz.ligada = true
 	cab.lareira_acesa = true
 	cab.luz_acesa = true
-	hs.avisar("Lareira acesa. Cuidado: com a cortina aberta, a luz aparece lá fora!")
+	if not _silencioso:
+		hs.avisar("Lareira acesa. Cuidado: com a cortina aberta, a luz aparece lá fora!")
 	return true
 
 
@@ -1111,6 +1197,29 @@ func _usar_item(id: String, slot: int) -> bool:
 		"kit":
 			status.vida = minf(status.vida + 40.0, 100.0)
 			gastar.call()
+		"bandagem":
+			status.vida = minf(status.vida + 15.0, 100.0)
+			gastar.call()
+			Sons.tocar(self, "papel", -10.0, 0.8)
+		"fruta_assada":
+			status.fome = minf(status.fome + 25.0, 100.0)
+			status.estresse = maxf(status.estresse - 5.0, 0.0)
+			gastar.call()
+		"peixe_grande":
+			status.fome = minf(status.fome + 18.0, 100.0)
+			gastar.call()
+			if _rng.randf() < 0.5:
+				status.vida = maxf(status.vida - 6.0, 1.0)
+				hs.avisar("Peixe cru… sua barriga reclamou. Asse no fogo! (-6 vida)")
+		"isca":
+			hs.avisar("A isca é usada sozinha quando você PESCA.")
+			return false
+		"covo":
+			hs.avisar("Vá até a beira do lago: LAGO → COLOCAR COVO.")
+			return false
+		"pagina":
+			gastar.call()
+			_ler_pagina()
 		"peixe":
 			status.fome = minf(status.fome + 10.0, 100.0)
 			gastar.call()
@@ -1157,11 +1266,13 @@ func _usar_item(id: String, slot: int) -> bool:
 			tocha_tempo = 120.0
 			lanterna_ligada = false
 			hs.avisar("Tocha acesa! (dura ~6 horas do jogo)")
-		"estaca", "bastao", "lanca":
+		"estaca", "bastao", "lanca", "machado", "machado_ferro":
 			arma_equipada = id
-			golpes = 0
 			hs.atualizar_arma(id)
-			hs.avisar("%s na mão. Botão ATACAR." % Itens.nome(id))
+			if id.begins_with("machado"):
+				hs.avisar("%s na mão. ATACAR bate; perto de uma árvore aparece CORTAR." % Itens.nome(id))
+			else:
+				hs.avisar("%s na mão. Botão ATACAR." % Itens.nome(id))
 		"armadilha_corda", "armadilha_estacas":
 			var a := Armadilha.criar("corda" if id == "armadilha_corda" else "estacas", Vector2.ZERO)
 			_pai_atual().add_child(a)
@@ -1273,27 +1384,38 @@ func perto_do_fogo() -> bool:
 
 
 func _criar(r: Dictionary) -> void:
-	if _ocupado or not Receitas.pode_criar(r, inv, _perto_bancada(), perto_do_fogo()):
+	if _ocupado or _fim:
+		return
+	if not Receitas.pode_criar(r, inv, _perto_bancada(), perto_do_fogo()):
+		hs.avisar(Receitas.motivo(r, inv, _perto_bancada(), perto_do_fogo()).capitalize())
 		return
 	_ocupado = true
 	player.definir_pode_mover(false)
-	hs.avisar("Criando %s..." % Itens.nome(r["da"]))
-	Sons.tocar(self, "batida", -10.0, 1.4)
-	await get_tree().create_timer(r["tempo"]).timeout
+	hs.mostrar_criando(Itens.nome(r["da"]), r["tempo"])
+	Sons.tocar(self, "machado" if r["bancada"] else "batida", -10.0, 1.4)
+	# false = o tempo PARA quando o jogo está pausado (antes continuava correndo)
+	await get_tree().create_timer(r["tempo"], false).timeout
+	var txt := ""
+	if _fim:
+		return
 	if Receitas.criar(r, inv):
 		ruido(player.global_position, r["ruido"])
-		hs.avisar("+%d %s" % [r["qtd"], Itens.nome(r["da"])])
+		txt = "+%d %s" % [r["qtd"], Itens.nome(r["da"])]
 		registro.append("criou:" + r["id"])
+		Sons.tocar(self, "item", -8.0)
+	else:
+		txt = "Não deu: faltou material ou espaço na mochila."
+	hs.terminou_criar(txt)
+	hs.avisar(txt)
 	_ocupado = false
-	player.definir_pode_mover(not _painel)
-	hs.atualizar_criacao()
+	player.definir_pode_mover(not _painel and not jogador_escondido)
 
 
 # ===============================================================
 # COMBATE
 # ===============================================================
 func _atacar() -> void:
-	if _ocupado or _fim or jogador_escondido or _t_ataque > 0.0:
+	if _ocupado or _fim or jogador_escondido or _deitado or _t_ataque > 0.0:
 		return
 	_t_ataque = 0.6
 	var dano := 6.0
@@ -1304,6 +1426,8 @@ func _atacar() -> void:
 			dano = 28.0
 			alcance = 36.0     # a lança alcança mais longe
 		"bastao": dano = 35.0
+		"machado": dano = 18.0
+		"machado_ferro": dano = 30.0
 	ruido(player.global_position, 60.0)
 	Sons.tocar(self, "passo", -4.0, 0.5)
 	# monstro do lago: um golpe faz ele mergulhar
@@ -1322,14 +1446,7 @@ func _atacar() -> void:
 	if m.tipo_monstro in ["observador", "sombra"]:
 		hs.avisar("Não adianta bater… só a LUZ funciona!")
 	if arma_equipada != "":
-		golpes += 1
-		var limite: int = {"estaca": 8, "lanca": 15}.get(arma_equipada, 30)
-		if golpes >= limite:
-			inv.remover(arma_equipada)
-			hs.avisar("Sua %s quebrou!" % Itens.nome(arma_equipada))
-			arma_equipada = ""
-			golpes = 0
-			hs.atualizar_arma("")
+		_gastar_ferramenta(arma_equipada)
 
 
 func _monstro_lago_perto(dist: float) -> bool:
@@ -1382,6 +1499,7 @@ func _em_seguranca() -> bool:
 func dormir() -> void:
 	if _dormindo:
 		return
+	levantar()
 	for m in get_tree().get_nodes_in_group("monstro"):
 		if m.area == "dentro":
 			hs.avisar("Não dá para dormir com ISSO aqui dentro!")
@@ -1532,6 +1650,10 @@ func pescar() -> void:
 	if noite and monstro_lago and is_instance_valid(monstro_lago):
 		monstro_lago.atrair(player.global_position)
 	var espera := _rng.randf_range(1.5, 3.5) if noite else _rng.randf_range(2.5, 6.0)
+	var com_isca := inv.tem("isca")
+	if com_isca:
+		espera *= 0.6    # v10: com isca o peixe morde mais rápido
+	Sons.tocar(self, "agua", -8.0, 1.2)
 	ext.agua.boia = ponto
 	ext.agua.boia_mordeu = false
 	var ao_morder := func(): ext.agua.boia_mordeu = true; ext.agua.respingo(ponto, 0.5); Sons.tocar(self, "passo", -8.0, 1.6)
@@ -1539,17 +1661,25 @@ func pescar() -> void:
 	var r: String = await hs.pescar(espera, 1.2)
 	hs.peixe_mordeu.disconnect(ao_morder)
 	ext.agua.boia = Vector2.INF
+	if com_isca and r != "cancelou":
+		inv.remover("isca")
 	match r:
 		"pegou":
 			var premio := "peixe"
 			var sorte := _rng.randf()
-			if sorte < 0.12:
+			Sons.tocar(self, "peixe", -6.0)
+			var chance_grande := 0.3 if com_isca else 0.06
+			if sorte < chance_grande:
+				premio = "peixe_grande"
+			elif sorte < chance_grande + 0.1:
 				premio = "metal"      # uma lata velha...
-			elif sorte < 0.2:
+			elif sorte < chance_grande + 0.18:
 				premio = "corda"      # um pedaço de linha de pesca
 			_ganhar({premio: 1})
 			if premio == "peixe":
 				hs.avisar("Você pescou um PEIXE! Asse na fogueira para comer melhor.")
+			elif premio == "peixe_grande":
+				hs.avisar("UM PEIXE GRANDE! Asse no fogo para matar bem a fome.")
 			ext.agua.respingo(ponto, 1.2)
 			registro.append("pescou:" + premio)
 		"escapou":
@@ -1615,8 +1745,11 @@ func _destacar_coletavel() -> void:
 	var alvo_atual: Coletavel = null
 	if player.alvo and player.alvo.get_parent() is Coletavel:
 		alvo_atual = player.alvo.get_parent()
+	var pj := player.global_position
 	for c in get_tree().get_nodes_in_group("coletavel"):
 		c.destacado = c == alvo_atual
+		# v10: só os itens perto do jogador "pulsam" (economiza CPU)
+		c.set_process(c.destacado or c.global_position.distance_squared_to(pj) < 160.0 * 160.0)
 
 
 # ===============================================================
@@ -1706,13 +1839,46 @@ func _dados() -> Dictionary:
 		"bancada": [bancada_pos.x, bancada_pos.y] if bancada_pos != Vector2.INF else [],
 		"despensa": despensa_vasculhada, "bateria": lanterna_bateria, "luz": luz_equipada,
 		"arma": arma_equipada, "cortina": cab.cortina_fechada, "tocos": tocos_pegos, "vara": usos_vara, "viu_intro": GameData.parte2.get("viu_intro", false),
+		# v10
+		"lanterna_ligada": lanterna_ligada, "tocha": tocha_tempo if luz_equipada == "tocha" else 0.0,
+		"desgaste": desgaste, "cortadas": arvores_cortadas, "cartazes": cartazes_lidos,
+		"paginas": paginas_lidas, "barco": barco_vasculhado, "covos": _dados_covos(),
+		"lucas_dia": lucas_visto_dia, "fogueira": fogueira_luz.duracao if fogueira_luz and fogueira_luz.ativa() else 0.0,
+		"lareira": lareira_luz.duracao if lareira_luz and lareira_luz.ativa() else 0.0,
 	}
 
 
 func _salvar() -> void:
+	if _fim:
+		return   # morreu/venceu: o save da Parte 2 já foi apagado, não grava de novo
 	GameData.parte2 = _dados()
 	GameData.etapa = maxi(GameData.etapa, 5)
 	GameData.salvar_jogo()
+	_t_autosave = 0.0
+	hud.info_save("Salvo automaticamente: Dia %d · %s" % [ciclo.dia, ciclo.texto_hora()])
+
+
+## v10: SAVE AUTOMÁTICO de verdade.
+## Antes ele só salvava no amanhecer: se o Android fechasse o jogo à tarde, você
+## voltava para as 6h perdendo tudo que juntou. Agora salva:
+##   - ao entrar/sair da cabana, ao pausar, ao minimizar e ao voltar para o menu
+##   - a cada hora do jogo durante o dia (de noite só se estiver seguro na cabana)
+##   - a cada 45 segundos, se não tiver monstro perto
+## Ele NÃO salva no meio de uma ação (criando, dormindo, pescando...).
+func salvar_agora(_motivo := "") -> void:
+	if _fim or _dormindo or ciclo == null or hs == null:
+		return
+	_salvar()
+
+
+func _autosave(delta: float) -> void:
+	_t_autosave += delta
+	if _t_autosave < 45.0 or _ocupado or _dormindo:
+		return
+	if _monstro_perto(160.0) != null:
+		_t_autosave = 30.0   # tenta de novo daqui a pouco
+		return
+	salvar_agora("tempo")
 
 
 func _carregar() -> void:
@@ -1746,7 +1912,402 @@ func _carregar() -> void:
 	if luz == "lanterna" and inv.tem("lanterna"):
 		_equipar_luz("lanterna")
 	arma_equipada = d.get("arma", "") if inv.tem(d.get("arma", "-")) else ""
+	_silencioso = true
 	cortina(bool(d.get("cortina", false)))
+	_silencioso = false
 	tocos_pegos = d.get("tocos", [])
 	usos_vara = int(d.get("vara", 0))
 	hs.atualizar_arma(arma_equipada)
+	# v10
+	lanterna_ligada = bool(d.get("lanterna_ligada", false)) and luz_equipada == "lanterna" and lanterna_bateria > 0.0
+	var t_tocha := float(d.get("tocha", 0.0))
+	if t_tocha > 0.0:
+		_equipar_luz("tocha")
+		tocha_tempo = t_tocha
+	var dg = d.get("desgaste", {})
+	desgaste = dg if dg is Dictionary else {}
+	for i in d.get("cortadas", []):
+		_derrubar_arvore(int(i), false)
+	cartazes_lidos = d.get("cartazes", [])
+	paginas_lidas = int(d.get("paginas", 0))
+	barco_vasculhado = bool(d.get("barco", false))
+	lucas_visto_dia = int(d.get("lucas_dia", 0))
+	for c in d.get("covos", []):
+		if c is Array and c.size() >= 3:
+			_novo_covo(Vector2(c[0], c[1]), int(c[2]))
+	var t_fog := float(d.get("fogueira", 0.0))
+	var t_lar := float(d.get("lareira", 0.0))
+	_silencioso = true
+	if t_fog > 0.0 and acender_fogueira(true):
+		fogueira_luz.duracao = t_fog
+	if t_lar > 0.0 and acender_lareira(true):
+		lareira_luz.duracao = t_lar
+	_silencioso = false
+	# carregou de NOITE: os monstros das horas que já passaram voltam
+	if ciclo.eh_noite():
+		_repor_monstros_da_noite.call_deferred()
+
+
+## Carregou o jogo no meio da noite: os monstros das horas que já passaram
+## (a partir das 20h; os das 19h já vieram com a mudança para "noite").
+func _repor_monstros_da_noite() -> void:
+	ext.agua.vagalumes = true
+	var h := 20
+	var agora := int(ciclo.hora)
+	for k in 10:
+		var hora_k := h % 24
+		if hora_k == agora:
+			break
+		_spawn_da_hora(hora_k)
+		h += 1
+
+
+# ===============================================================
+# v10 — OBJETOS NOVOS (cartazes, barco, cortar árvores)
+# ===============================================================
+func _criar_objetos_v10() -> void:
+	for i in ObjetosV10.POS_CARTAZES.size():
+		ext.arvores.add_child(ObjetosV10.criar_cartaz(i))
+	ext.arvores.add_child(ObjetosV10.criar_barco())
+	# um único interagível que vai para a árvore mais perto (barato: não cria
+	# uma área de física para cada uma das centenas de árvores)
+	_alvo_corte = Interagivel.criar("cortar", Vector2(-99999, -99999), 12.0, "CORTAR")
+	ext.add_child(_alvo_corte)
+
+
+func _ler_cartaz(i: int) -> void:
+	if i < 0 or i >= ObjetosV10.CARTAZES.size():
+		return
+	_ocupado = true
+	player.definir_pode_mover(false)
+	hud.modo_conversa(true, "leitura")
+	Sons.tocar(self, "papel", -6.0)
+	for t in ObjetosV10.CARTAZES[i]["texto"]:
+		await hud.dialogo.mensagem(t)
+	if i not in cartazes_lidos:
+		cartazes_lidos.append(i)
+		status.estresse = minf(status.estresse + 4.0, 100.0)   # dá um arrepio...
+		if cartazes_lidos.size() == ObjetosV10.CARTAZES.size():
+			await hud.dialogo.mensagem("Quatro cartazes, quatro décadas. Todos sumiram aqui… e ninguém nunca encontrou nenhum deles.")
+	hud.modo_conversa(false, "leitura")
+	_ocupado = false
+	player.definir_pode_mover(not _painel)
+
+
+func _vasculhar_barco() -> void:
+	if barco_vasculhado:
+		hs.avisar("Embaixo do barco só tem lama agora.")
+		return
+	barco_vasculhado = true
+	Sons.tocar(self, "rangido", -8.0, 1.4)
+	ruido(player.global_position, 60.0)
+	if 3 in cartazes_lidos:
+		hs.avisar("Exatamente onde o bilhete dizia…")
+	_ganhar({"enlatado": 2, "isca": 3, "corda": 1, "kit": 1})
+
+
+## Coloca o interagível CORTAR na árvore mais perto (se tiver machado).
+func _procurar_arvore() -> void:
+	var melhor := -1
+	if jogador_area == "fora" and not jogador_escondido and (inv.tem("machado") or inv.tem("machado_ferro")):
+		var p := player.global_position
+		var melhor_d := 22.0 * 22.0
+		for i in ext.troncos.size():
+			if i in arvores_cortadas:
+				continue
+			var d: float = (ext.troncos[i] as Vector2).distance_squared_to(p)
+			if d < melhor_d:
+				melhor_d = d
+				melhor = i
+	if melhor == _arvore_alvo:
+		return
+	_arvore_alvo = melhor
+	_alvo_corte.global_position = ext.troncos[melhor] + Vector2(0, 2) if melhor >= 0 else Vector2(-99999, -99999)
+
+
+func cortar_arvore() -> void:
+	var i := _arvore_alvo
+	if i < 0 or i in arvores_cortadas or _ocupado:
+		return
+	var ferramenta := "machado_ferro" if inv.tem("machado_ferro") else "machado"
+	if not inv.tem(ferramenta):
+		hs.avisar("Você precisa de um MACHADO.")
+		return
+	if status.energia < 6.0:
+		hs.avisar("Cansado demais para cortar. Descanse um pouco.")
+		return
+	_ocupado = true
+	player.definir_pode_mover(false)
+	status.energia = maxf(status.energia - 4.0, 0.0)
+	Sons.tocar(self, "machado", -3.0, randf_range(0.9, 1.1))
+	ruido(player.global_position, 75.0)
+	var arv: Node2D = ext.arvores_sprites[i]
+	var x0 := arv.position.x
+	var tw := create_tween()
+	tw.tween_property(arv, "position:x", x0 + 1.0, 0.05)
+	tw.tween_property(arv, "position:x", x0 - 1.0, 0.05)
+	tw.tween_property(arv, "position:x", x0, 0.05)
+	tremer_tela(1.0)
+	_golpes_arvore[i] = int(_golpes_arvore.get(i, 0)) + 1
+	_gastar_ferramenta(ferramenta)
+	var precisa := 2 if ferramenta == "machado_ferro" else 3
+	await get_tree().create_timer(0.35, false).timeout
+	if _golpes_arvore[i] >= precisa:
+		_derrubar_arvore(i, true)
+	else:
+		hs.avisar("Toc! (%d/%d)" % [_golpes_arvore[i], precisa])
+	_ocupado = false
+	player.definir_pode_mover(not _painel)
+
+
+## Derruba a árvore: some o sprite, a colisão e a sombra; fica um toco.
+func _derrubar_arvore(i: int, com_premio: bool) -> void:
+	if i < 0 or i >= ext.troncos.size() or i in arvores_cortadas and com_premio:
+		return
+	if i not in arvores_cortadas:
+		arvores_cortadas.append(i)
+	var arv: Node2D = ext.arvores_sprites[i]
+	if is_instance_valid(arv):
+		if com_premio:
+			var tw := create_tween()
+			tw.tween_property(arv, "rotation", 1.4 if player.global_position.x < arv.global_position.x else -1.4, 0.6).set_ease(Tween.EASE_IN)
+			tw.parallel().tween_property(arv, "modulate:a", 0.0, 0.6)
+			tw.tween_callback(arv.hide)
+		else:
+			arv.hide()
+	var toco := Sprite2D.new()
+	toco.texture = PixelArte.textura("toco")
+	toco.offset = Vector2(0, -toco.texture.get_size().y / 2.0)
+	toco.position = ext.troncos[i]
+	ext.arvores.add_child(toco)
+	var forma = _forma_arvore(i)
+	if forma:
+		forma.set_deferred("disabled", true)
+	ext.tirar_obstaculo(i)
+	sombras.remover_arvore(i)
+	_arvore_alvo = -1
+	if com_premio:
+		Sons.tocar(self, "arvore_cai", -2.0)
+		ruido(ext.troncos[i], 140.0)
+		tremer_tela(3.0)
+		var qtd := 3 + (1 if _rng.randf() < 0.4 else 0)
+		_ganhar({"madeira": qtd})
+		registro.append("cortou:%d" % i)
+
+
+## As formas de colisão das árvores foram criadas na MESMA ordem de ext.troncos.
+func _forma_arvore(i: int) -> CollisionShape2D:
+	var corpo := ext.get_node_or_null("ColisoesFora")
+	if corpo == null or i >= corpo.get_child_count():
+		return null
+	return corpo.get_child(i) as CollisionShape2D
+
+
+func _gastar_ferramenta(id: String) -> void:
+	desgaste[id] = int(desgaste.get(id, 0)) + 1
+	var limite: int = LIMITE_USO.get(id, 30)
+	if int(desgaste[id]) >= limite:
+		desgaste[id] = 0
+		inv.remover(id)
+		hs.avisar("Seu %s quebrou!" % Itens.nome(id))
+		if arma_equipada == id and not inv.tem(id):
+			arma_equipada = ""
+			hs.atualizar_arma("")
+
+
+# ===============================================================
+# v10 — DEITAR NA CAMA (a mente melhora, mas o tempo NÃO acelera)
+# ===============================================================
+func deitar() -> void:
+	if _deitado:
+		return
+	for m in get_tree().get_nodes_in_group("monstro"):
+		if m.area == "dentro":
+			hs.avisar("Não dá para deitar com ISSO aqui dentro!")
+			return
+	_deitado = true
+	player.definir_pode_mover(false)
+	player.velocity = Vector2.ZERO
+	# a colisão desliga enquanto está na cama (senão a física "empurra" para fora)
+	player.get_node("CollisionShape2D").set_deferred("disabled", true)
+	player.position = CabanaInterior.PONTOS["deitado_voce"]
+	# igual ao Ator.deitar() da cutscene: gira o boneco e centraliza no colchão
+	player.sprite.rotation = -PI / 2.0
+	player.sprite.position = Vector2(SpriteLibrary.ALTURA_PERSONAGEM / 2.0, -5)
+	player.sprite.olhar("baixo")
+	player.sprite.stop()
+	Sons.tocar(self, "cama", -6.0)
+	hs.avisar("Deitado. A mente vai se acalmando… (mexa o joystick para levantar)")
+	registro.append("deitou")
+
+
+func levantar() -> void:
+	if not _deitado:
+		return
+	_deitado = false
+	player.sprite.rotation = 0.0
+	player.sprite.position = Vector2.ZERO
+	player.position = CabanaInterior.PONTOS["cama_voce"] + Vector2(0, 6)
+	player.get_node("CollisionShape2D").set_deferred("disabled", false)
+	Sons.tocar(self, "cama", -10.0, 1.2)
+	player.definir_pode_mover(not _painel and not _ocupado)
+
+
+func _atualizar_deitado(delta: float) -> void:
+	# mexeu o joystick / teclado = levanta
+	var quer_andar := Input.get_vector("mover_esquerda", "mover_direita", "mover_cima", "mover_baixo") != Vector2.ZERO \
+		or player._entrada_virtual.length() > 0.4
+	if quer_andar or jogador_area != "dentro":
+		levantar()
+		return
+	var calma := 1.6
+	if _em_seguranca():
+		calma = 2.6           # portas e janelas protegidas: relaxa mais rápido
+	elif ciclo.eh_noite():
+		calma = 1.0
+	if lareira_luz and lareira_luz.ativa():
+		calma += 0.6          # o calor do fogo ajuda
+	status.estresse = maxf(status.estresse - calma * delta, 0.0)
+	status.energia = minf(status.energia + 0.5 * delta, 100.0)
+
+
+# ===============================================================
+# v10 — COVOS (armadilha de peixe no lago)
+# ===============================================================
+func _colocar_covo() -> void:
+	var p := _ponto_lago_perto()
+	# na margem (um pouco para fora da água, onde dá para pegar)
+	var d := (player.global_position - LAGO_CENTRO) / LAGO_RAIO
+	p = (LAGO_CENTRO + d.normalized() * (LAGO_RAIO + Vector2(6, 6))).round()
+	for c in covos:
+		if Vector2(c[0], c[1]).distance_to(p) < 40.0:
+			hs.avisar("Já tem um covo aqui perto.")
+			return
+	inv.remover("covo")
+	_novo_covo(p, 0)
+	Sons.tocar(self, "agua", -6.0, 0.9)
+	ext.agua.respingo(_ponto_lago_perto(), 0.6)
+	hs.avisar("Covo colocado. Volte daqui a algumas horas!")
+
+
+func _novo_covo(p: Vector2, peixes: int) -> void:
+	var n := ObjetosV10.criar_covo(covos.size(), p)
+	n.set_meta("peixes", peixes)
+	ext.arvores.add_child(n)
+	covos.append([p.x, p.y, peixes])
+	_covo_nodes.append(n)
+
+
+func _dados_covos() -> Array:
+	return covos.duplicate(true)
+
+
+## A cada hora cheia cada covo tem chance de pegar um peixe (máximo 3).
+func _covos_hora() -> void:
+	for i in covos.size():
+		if covos[i][2] < 3 and _rng.randf() < 0.35:
+			covos[i][2] += 1
+			_covo_nodes[i].set_meta("peixes", covos[i][2])
+			_covo_nodes[i].queue_redraw()
+
+
+func _mexer_covo(i: int) -> void:
+	if i < 0 or i >= covos.size():
+		return
+	var q: int = covos[i][2]
+	if q <= 0:
+		hs.avisar("O covo está vazio. Paciência…")
+		return
+	var sobra := inv.adicionar("peixe", q)
+	covos[i][2] = sobra
+	_covo_nodes[i].set_meta("peixes", sobra)
+	_covo_nodes[i].queue_redraw()
+	if "peixe" not in achados:
+		achados.append("peixe")
+	Sons.tocar(self, "peixe", -6.0)
+	hs.avisar("+%d Peixe cru" % (q - sobra) if q > sobra else "Mochila cheia!")
+
+
+# ===============================================================
+# v10 — O VULTO DO LUCAS e as páginas do diário
+# ===============================================================
+func _talvez_lucas(h: int) -> void:
+	if _lucas and is_instance_valid(_lucas):
+		return
+	if jogador_area != "fora" or jogador_escondido or _dormindo or ciclo.dia < 2:
+		return
+	if paginas_lidas + inv.contar("pagina") >= PAGINAS.size():
+		return
+	var fim_de_tarde := h == 17 and lucas_visto_dia < ciclo.dia
+	var alucinando := ciclo.eh_noite() and status.estresse > 60.0 and _rng.randf() < 0.25
+	if not (fim_de_tarde or alucinando):
+		return
+	for tentativa in 12:
+		var ang := _rng.randf() * TAU
+		var p := ponto_valido(player.global_position + Vector2(cos(ang), sin(ang)) * _rng.randf_range(130, 190))
+		if p.distance_to(player.global_position) > 110.0:
+			lucas_visto_dia = ciclo.dia
+			_lucas = LucasVulto.new()
+			_lucas.alvo = player
+			_lucas.alcancado.connect(_lucas_alcancado)
+			ext.arvores.add_child(_lucas)
+			_lucas.global_position = p
+			sombras.adicionar(_lucas, 1.0, 1.0)
+			Sons.tocar(self, "sussurro", -10.0, 0.9)
+			hs.avisar("…Lucas?")
+			registro.append("lucas")
+			return
+
+
+func _lucas_alcancado(pos: Vector2) -> void:
+	var c := Coletavel.criar("pagina", 1, pos)
+	ext.arvores.add_child(c)
+	status.estresse = minf(status.estresse + 6.0, 100.0)
+	hs.avisar("Ele sumiu… mas deixou cair alguma coisa.")
+
+
+func _ler_pagina() -> void:
+	var i := mini(paginas_lidas, PAGINAS.size() - 1)
+	paginas_lidas += 1
+	hs.abrir_mochila(false)
+	_ocupado = true
+	player.definir_pode_mover(false)
+	hud.modo_conversa(true, "leitura")
+	Sons.tocar(self, "papel", -6.0)
+	await hud.dialogo.mensagem(PAGINAS[i])
+	hud.modo_conversa(false, "leitura")
+	_ocupado = false
+	player.definir_pode_mover(not _painel)
+
+
+# ===============================================================
+# v10 — SONS DE AMBIENTE (deixam o mundo vivo, sem loops pesados)
+# Sons CURTOS tocados de vez em quando, com volume pela distância.
+# Nunca mais de 8 ao mesmo tempo no celular (limite em sons.gd).
+# ===============================================================
+func _sons_ambiente(delta: float) -> void:
+	if _dormindo or not GameData.som_ligado:
+		return
+	_t_ambiente -= delta
+	if _t_ambiente <= 0.0:
+		_t_ambiente = _rng.randf_range(9.0, 20.0)
+		var noite := ciclo.eh_noite()
+		var perto_lago := jogador_area == "fora" and player.global_position.distance_to(LAGO_CENTRO) < 420.0
+		var sorte := _rng.randf()
+		if perto_lago and (noite or ciclo.fase == "entardecer") and sorte < 0.45:
+			Sons.tocar(self, "sapo", -16.0 + _rng.randf_range(-3, 2), _rng.randf_range(0.85, 1.15))
+		elif noite and sorte < 0.65:
+			Sons.tocar(self, "galho", -20.0, _rng.randf_range(0.7, 1.0))   # algo pisando longe...
+		elif sorte < 0.85:
+			Sons.tocar(self, "rajada", -18.0 if jogador_area == "fora" else -24.0, _rng.randf_range(0.85, 1.1))
+		elif noite and status.estresse > 55.0:
+			Sons.tocar(self, "sussurro", -14.0, _rng.randf_range(0.8, 1.1))
+	# coração batendo: monstro perto ou mente no limite
+	_t_coracao -= delta
+	if _t_coracao <= 0.0:
+		var perto := _monstro_perto(110.0) != null or _monstro_lago_perto(90.0)
+		if perto or status.estresse > 78.0:
+			Sons.tocar(self, "coracao", -6.0 if perto else -12.0)
+			_t_coracao = 0.75 if perto else 1.1
+		else:
+			_t_coracao = 1.0

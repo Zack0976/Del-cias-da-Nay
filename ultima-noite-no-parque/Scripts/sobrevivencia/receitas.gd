@@ -32,6 +32,13 @@ const LISTA := [
 	{"id": "ensopado", "da": "ensopado", "qtd": 1, "precisa": {"peixe": 1, "ervas": 1, "agua": 1}, "bancada": false, "fogo": true, "libera": "achou:peixe", "ruido": 15.0, "tempo": 3.0},
 	{"id": "lanca", "da": "lanca", "qtd": 1, "precisa": {"madeira": 3, "pedra": 2, "corda": 1}, "bancada": true, "libera": "dia:2", "ruido": 90.0, "tempo": 2.5},
 	{"id": "sinalizador", "da": "sinalizador", "qtd": 1, "precisa": {"fosforos": 2, "metal": 1, "tecido": 1}, "bancada": true, "libera": "dia:2", "ruido": 40.0, "tempo": 2.5},
+	# --- v10: ferramentas, cura rápida e coisas para o lago ---
+	{"id": "machado", "da": "machado", "qtd": 1, "precisa": {"madeira": 2, "pedra": 2, "corda": 1}, "bancada": false, "libera": "inicio", "ruido": 50.0, "tempo": 2.5},
+	{"id": "bandagem", "da": "bandagem", "qtd": 2, "precisa": {"tecido": 2}, "bancada": false, "libera": "inicio", "ruido": 5.0, "tempo": 1.2},
+	{"id": "isca", "da": "isca", "qtd": 3, "precisa": {"fruta": 1}, "bancada": false, "libera": "achou:fruta", "ruido": 5.0, "tempo": 1.0},
+	{"id": "covo", "da": "covo", "qtd": 1, "precisa": {"madeira": 3, "corda": 2}, "bancada": true, "libera": "inicio", "ruido": 60.0, "tempo": 2.5},
+	{"id": "machado_ferro", "da": "machado_ferro", "qtd": 1, "precisa": {"madeira": 2, "metal": 2, "corda": 1}, "bancada": true, "libera": "dia:2", "ruido": 120.0, "tempo": 3.0},
+	{"id": "fruta_assada", "da": "fruta_assada", "qtd": 2, "precisa": {"fruta": 2}, "bancada": false, "fogo": true, "libera": "achou:fruta", "ruido": 5.0, "tempo": 1.5},
 ]
 
 
@@ -65,14 +72,20 @@ static func _libera_espaco(r: Dictionary, inv: Inventario) -> bool:
 	return false
 
 
+## v10 — BUG CORRIGIDO: antes os ingredientes eram tirados ANTES de ver se o item
+## novo cabia. Com a mochila cheia, você perdia os ingredientes e não ganhava nada.
 static func criar(r: Dictionary, inv: Inventario) -> bool:
 	for id in r["precisa"]:
 		if not inv.tem(id, r["precisa"][id]):
 			return false
+	var copia := inv.para_dados()
 	for id in r["precisa"]:
 		inv.remover(id, r["precisa"][id])
-	var sobrou := inv.adicionar(r["da"], r["qtd"])
-	return sobrou == 0
+	if not inv.cabe(r["da"], r["qtd"]):
+		inv.de_dados(copia)     # desfaz: nada se perde
+		return false
+	inv.adicionar(r["da"], r["qtd"])
+	return true
 
 
 static func texto_ingredientes(r: Dictionary, inv: Inventario) -> String:
@@ -80,3 +93,26 @@ static func texto_ingredientes(r: Dictionary, inv: Inventario) -> String:
 	for id in r["precisa"]:
 		partes.append("%s %d/%d" % [Itens.nome(id), inv.contar(id), r["precisa"][id]])
 	return ", ".join(partes)
+
+
+## Igual ao de cima, mas o que FALTA aparece em vermelho e o que tem em verde.
+static func texto_ingredientes_bb(r: Dictionary, inv: Inventario) -> String:
+	var partes: Array[String] = []
+	for id in r["precisa"]:
+		var tem := inv.contar(id)
+		var precisa: int = r["precisa"][id]
+		var cor := "#8fd07a" if tem >= precisa else "#e06a5a"
+		partes.append("[color=%s]%s %d/%d[/color]" % [cor, Itens.nome(id), tem, precisa])
+	return ", ".join(partes)
+
+
+## Por que não dá para criar (texto curto para o botão).
+static func motivo(r: Dictionary, inv: Inventario, perto_da_bancada: bool, perto_do_fogo := false) -> String:
+	for id in r["precisa"]:
+		if not inv.tem(id, r["precisa"][id]):
+			return "FALTA ITEM"
+	if r["bancada"] and not perto_da_bancada:
+		return "VÁ À BANCADA"
+	if r.get("fogo", false) and not perto_do_fogo:
+		return "PERTO DO FOGO"
+	return "MOCHILA CHEIA"
