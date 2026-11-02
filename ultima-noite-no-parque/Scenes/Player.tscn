@@ -1,0 +1,38 @@
+[gd_scene load_steps=5 format=3 uid="uid://d26mowqa6iaga"]
+
+[ext_resource type="Script" path="res://Scripts/Player.gd" id="1_player"]
+[ext_resource type="Script" path="res://Scripts/sprite_personagem.gd" id="2_sprite"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_pes"]
+radius = 5.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_interacao"]
+radius = 6.0
+
+[node name="Player" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+motion_mode = 1
+script = ExtResource("1_player")
+
+[node name="Sprite" type="AnimatedSprite2D" parent="."]
+script = ExtResource("2_sprite")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -3)
+shape = SubResource("CircleShape2D_pes")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(0, -12)
+zoom = Vector2(5, 5)
+position_smoothing_enabled = true
+position_smoothing_speed = 6.0
+
+[node name="AreaInteracao" type="Area2D" parent="."]
+position = Vector2(0, -6)
+collision_layer = 0
+collision_mask = 4
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AreaInteracao"]
+shape = SubResource("CircleShape2D_interacao")
