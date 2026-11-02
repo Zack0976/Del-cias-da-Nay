@@ -14,6 +14,9 @@ extends CharacterBody2D
 ##   RASTEJANTE  rápido, persegue, entra por janela sem barricada, cai em armadilhas
 ##   COLOSSO     lento, muita vida, DESTRÓI barricadas, exige preparação
 ##   SOMBRA      só existe no escuro, quase invisível, foge da luz
+##   UIVADOR     (v11) lobo magro: rápido, ouve MUITO longe, uiva; foge da luz
+##   IMITADOR    (v11) de longe parece um amigo seu e chama por você. A luz (ou
+##               chegar perto) revela a forma verdadeira — e aí ele ataca.
 
 signal morreu(m: Monstro)
 
@@ -25,6 +28,8 @@ const PERFIS := {
 	"rastejante": {"vida": 45.0, "vel": 42.0, "vel_ataque": 98.0, "visao": 150.0, "audicao": 120.0, "dano": 12.0, "alcance": 14.0},
 	"colosso":    {"vida": 320.0, "vel": 26.0, "vel_ataque": 36.0, "visao": 170.0, "audicao": 160.0, "dano": 30.0, "alcance": 20.0},
 	"sombra":     {"vida": 9999.0, "vel": 40.0, "vel_ataque": 74.0, "visao": 130.0, "audicao": 40.0, "dano": 10.0, "alcance": 13.0},
+	"uivador":    {"vida": 60.0, "vel": 50.0, "vel_ataque": 112.0, "visao": 160.0, "audicao": 230.0, "dano": 14.0, "alcance": 14.0},
+	"imitador":   {"vida": 50.0, "vel": 30.0, "vel_ataque": 96.0, "visao": 200.0, "audicao": 60.0, "dano": 16.0, "alcance": 14.0},
 }
 
 var tipo_monstro := "rastejante"
@@ -57,6 +62,11 @@ var _t_parado := 0.0
 var _flash := 0.0
 var _sumido := 0.0                 ## Observador/Sombra: tempo escondido depois de tomar luz
 var abertura_alvo: Abertura = null
+# v11
+var disfarce := ""                 ## imitador: qual amigo ele está fingindo ser ("marina", "rafa", "lucas")
+var revelado := false
+var _t_chamar := 3.0
+var _t_medo := 0.0
 
 
 static func criar(tipo: String, pos: Vector2, dono: Node) -> Monstro:
@@ -145,6 +155,11 @@ func _physics_process(delta: float) -> void:
 		queue_redraw()
 		return
 	_regras_especiais(delta)
+	if tipo_monstro == "imitador" and not revelado:
+		_disfarcado(delta)
+		_mover(delta)
+		queue_redraw()
+		return
 	match estado:
 		Estado.IDLE: _idle()
 		Estado.PATROL: _patrol()
@@ -268,9 +283,26 @@ func _return() -> void:
 func _viu() -> void:
 	ultimo_visto = _jogador().global_position
 	_t_sem_ver = 0.0
+	var ja_atacava := estado == Estado.ATTACK
 	_mudar(Estado.ATTACK)
-	if tipo_monstro == "rastejante":
-		Sons.tocar(self, "galho", -6.0, 1.6)
+	if ja_atacava:
+		return
+	match tipo_monstro:
+		"rastejante": _som("galho", -6.0, 1.6)
+		"uivador": _som("uivo", -4.0, randf_range(0.9, 1.1))
+		"colosso": _som("rosnado", -2.0, 0.7)
+		"imitador": _som("rosnado", -4.0, 1.4)
+
+
+## Som com volume pela distância até o jogador (longe = baixinho; muito longe = nada).
+func _som(nome: String, vol: float, tom := 1.0) -> void:
+	var j := _jogador()
+	if j == null:
+		return
+	var d := global_position.distance_to(j.global_position)
+	if d > 420.0 or mundo.jogador_area != area:
+		return
+	Sons.tocar(self, nome, vol - d / 30.0, tom)
 
 
 # ---------------------------------------------------------------
@@ -287,7 +319,7 @@ func _atacar_casa(delta: float) -> void:
 		return
 	velocity = Vector2.ZERO
 	if abertura_alvo.aberta():
-		if tipo_monstro in ["rastejante", "sombra", "colosso"]:
+		if tipo_monstro in ["rastejante", "sombra", "colosso", "uivador", "imitador"]:
 			mundo.monstro_entra(self, abertura_alvo)
 		return
 	# barricada no caminho
@@ -299,8 +331,8 @@ func _atacar_casa(delta: float) -> void:
 				Sons.tocar(self, "batida", 2.0, 0.7)
 				mundo.tremer_tela(2.0)
 				Ruido.emitir(get_tree(), global_position, 120.0)
-		"rastejante":
-			abertura_alvo.danificar(2.0 * delta)           # arranha (fraco)
+		"rastejante", "uivador":
+			abertura_alvo.danificar(2.5 * delta)           # arranha (fraco)
 			if _t_estado > 8.0:
 				abertura_alvo = null                       # tenta outra janela
 		_:
@@ -310,15 +342,27 @@ func _atacar_casa(delta: float) -> void:
 # ---------------------------------------------------------------
 # REGRAS ESPECIAIS
 # ---------------------------------------------------------------
-func _regras_especiais(_delta: float) -> void:
+func _regras_especiais(delta: float) -> void:
+	_t_medo = maxf(_t_medo - delta, 0.0)
 	match tipo_monstro:
+		"uivador":
+			# foge da luz (fogueira, lampião, tocha...) e volta depois
+			if _t_medo <= 0.0 and Iluminacao.esta_iluminado(global_position, 6.0):
+				_t_medo = 3.0
+				_flash = 0.2
+				alvo = mundo.ponto_valido(global_position + (global_position - _jogador().global_position).normalized() * 110.0)
+				_mudar(Estado.INVESTIGATE)
+		"imitador":
+			if not revelado and Iluminacao.esta_iluminado(global_position, 4.0):
+				revelar()
+				_tomar_luz()   # a luz revela e espanta
 		"observador", "sombra":
 			if Iluminacao.esta_iluminado(global_position, 4.0):
 				_tomar_luz()
 		"rastejante":
 			# os faróis ofuscam
 			for c in get_tree().get_nodes_in_group("carro"):
-				if c.farois_ligados() and Geometry2D.is_point_in_polygon(global_position, c.poligono_global()):
+				if c.iluminando(global_position):
 					_preso = 1.5
 					_flash = 0.3
 					velocity = Vector2.ZERO
@@ -352,6 +396,41 @@ func _observar() -> void:
 		_tomar_luz()  # ataca e some
 
 
+# ---------------------------------------------------------------
+# IMITADOR (v11)
+# ---------------------------------------------------------------
+## Disfarçado: fica a uma distância "segura", parado, e chama você pelo nome.
+func _disfarcado(delta: float) -> void:
+	var j := _jogador()
+	if j == null or mundo.jogador_area != "fora" or area != "fora":
+		velocity = Vector2.ZERO
+		return
+	var d := global_position.distance_to(j.global_position)
+	if d < 34.0:
+		revelar()
+		_viu()
+		return
+	# chega devagar até uns 110 px e espera você vir
+	if d > 130.0:
+		_ir_para(j.global_position, vel)
+	else:
+		velocity = Vector2.ZERO
+	_t_chamar -= delta
+	if _t_chamar <= 0.0 and d < 330.0:
+		_t_chamar = randf_range(6.0, 10.0)
+		mundo.imitador_chamou(self)
+
+
+func revelar() -> void:
+	if revelado:
+		return
+	revelado = true
+	_flash = 0.4
+	_som("rosnado", -2.0, 1.5)
+	if mundo and mundo.has_method("imitador_revelado"):
+		mundo.imitador_revelado(self)
+
+
 func _tomar_luz() -> void:
 	if _sumido > 0.0:
 		return
@@ -382,6 +461,8 @@ func _atualizar_visibilidade(delta: float) -> void:
 		alvo_alfa = 0.55 if perto else 0.14   # difícil de enxergar
 	elif tipo_monstro == "observador":
 		alvo_alfa = 0.85
+	elif tipo_monstro == "imitador" and not revelado:
+		alvo_alfa = 0.9
 	_alfa = move_toward(_alfa, alvo_alfa, delta * 1.5)
 	modulate.a = _alfa
 
@@ -443,6 +524,8 @@ func _checar_armadilhas() -> void:
 func tomar_dano(valor: float) -> void:
 	if tipo_monstro in ["observador", "sombra"]:
 		return  # armas não funcionam: só a LUZ
+	if tipo_monstro == "imitador":
+		revelar()
 	vida -= valor
 	_flash = 0.15
 	if estado != Estado.ATTACK and _jogador():
@@ -481,6 +564,15 @@ var _olhando_esq := false
 
 
 func _draw() -> void:
+	# imitador disfarçado: desenha o AMIGO (um pouquinho escuro demais...)
+	if tipo_monstro == "imitador" and not revelado and disfarce != "":
+		var sf := SpriteLibrary.frames_personagem(disfarce)
+		var anim := "andar_baixo" if velocity.length() > 3.0 else "parado_baixo"
+		var qtd := sf.get_frame_count(anim)
+		var t := sf.get_frame_texture(anim, int(_anim * 6.0) % maxi(qtd, 1))
+		if t:
+			draw_texture(t, Vector2(-t.get_width() / 2.0, -t.get_height()), Color(0.62, 0.6, 0.7))
+		return
 	var quadros: Array = MonstroArte.quadros(tipo_monstro)
 	var vel_anim := 10.0 if estado == Estado.ATTACK else 5.0
 	if velocity.length() < 3.0 and tipo_monstro != "sombra":

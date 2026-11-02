@@ -162,7 +162,7 @@ func _create_main_ui() -> void:
 	main_vbox.add_child(aviso_label)
 
 	var versao := Label.new()
-	versao.text = "v10.0"
+	versao.text = "v11.0"
 	versao.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	versao.offset_left = -60
 	versao.offset_top = -36

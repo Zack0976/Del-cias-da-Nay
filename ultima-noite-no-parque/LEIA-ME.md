@@ -398,3 +398,77 @@ Elas são atualizadas só 5 a 10 vezes por segundo, e só perto da câmera.
   - rajadas de vento
   - galhos estalando longe à noite
   - Os arquivos são gerados por `ferramentas/gerar_sons_v10.py`. A folha do Lucas é gerada por `ferramentas/gerar_lucas_v10.py`.
+
+## Versão 11.0 — mapa maior, pistas e o resgate dos amigos
+
+> Abra no editor uma vez antes de exportar: ele importa os 12 sons novos (`Sons/gerados/*.wav`).
+
+### A história mudou: ninguém vem buscar vocês
+- Saiu o "resgate chega em 5 dias". Agora **você** salva a Marina, o Rafa e o Lucas.
+- **17 micro-pistas** espalhadas pelo parque. São brilhinhos no chão: chegue perto e toque em EXAMINAR.
+  - 9 são dos seus amigos (3 de cada). Com as 3 pistas de um amigo, você descobre onde ele está.
+  - 8 são de **outras pessoas que visitaram o parque**: Helena (1987), os irmãos Alves (1999), o guarda Sérgio (2006), a Carolina (2014) e coisas mais antigas.
+- **Botão PISTAS** (abaixo do CRIAR): mostra o diário com o que você descobriu e onde está cada amigo.
+- **Resgates:**
+
+  | Amigo | Onde | O que precisa |
+  |---|---|---|
+  | Marina | guarita (norte) | um **machado** (raízes pretas na porta) |
+  | Rafa | casa de barcos (lago) | a **chave** que fica no acampamento abandonado |
+  | Lucas | caverna (sudeste) | **luz acesa** (lanterna ou tocha) |
+
+- Quem você salva fica **na cabana**. Os amigos te acalmam (a Mente melhora), e dá para conversar com eles (FALAR).
+- **Final:** com os três salvos, vá **de dia** até o carro e escolha **FUGIR COM TODOS**.
+  - Se você tirou a bateria do carro, precisa de uma Bateria na mochila.
+
+### Mapa bem maior
+- A área jogável passou de 2740x1300 para **3640x2500** pixels.
+- Lugares novos, ligados por **trilhas de terra**:
+  - **guarita do guarda-florestal**
+  - **casa de barcos** com píer
+  - **caverna**
+  - **acampamento abandonado**, com barracas rasgadas
+- Mais floresta e mais recursos espalhados.
+- As trilhas novas são desenhadas com bem menos comandos de desenho do que a trilha antiga.
+
+### Faróis do carro
+- Saiu o cone com degradê em faixas.
+- Agora o farol é uma **luz redonda pixelada** na frente do carro, igual às outras luzes. Vale também na cutscene.
+- O Rastejante que entra nessa luz continua ficando ofuscado.
+
+### Cama
+- Só **DEITAR**: a Mente sobe aos poucos e a energia também.
+- O tempo **nunca** acelera. O DORMIR (pular a noite) foi tirado.
+
+### Mais monstros
+- Aparecem mais monstros por noite, em mais horários (das 19h às 3h).
+- No fim da tarde já aparece um. De dia, às vezes, o Observador surge lá longe entre as árvores e some.
+- Limite de 8 monstros ao mesmo tempo no celular (11 no PC).
+- **Uivador (novo):**
+  - lobo magro e muito rápido
+  - ouve barulho de MUITO longe e uiva quando te vê
+  - foge da luz
+  - arranha as barricadas e entra por janela aberta
+- **Imitador (novo):**
+  - de longe parece **um dos seus amigos** e chama você ("…me ajuda…")
+  - se você chegar perto, ele se revela e ataca
+  - **luz** revela o que ele é e espanta
+  - Os cartazes e as pistas avisam sobre ele.
+
+### Lago
+- **BEBER / PESCAR / COLOCAR COVO** funcionam em **qualquer ponto da margem**. Antes eram só 7 pontos fixos.
+- Isso usa um único interagível que acompanha você pela beira (leve).
+
+### Cartazes
+- Ao tocar em LER, o **cartaz aparece na tela** com:
+  - o **rosto** da pessoa (pixel art; fotos antigas em sépia)
+  - nome, idade e ano
+  - onde foi vista pela última vez
+  - o recado escrito à caneta
+
+### Sons novos
+- Monstros novos: uivo, rosnado e a "voz" do imitador.
+- Ações: fósforo (fogueira, lareira e tocha), comer, beber, zíper da mochila, pedra, porta da cabana.
+- Pistas e resgate: o sininho da pista e o som do resgate.
+- **Passos na madeira** dentro da cabana.
+- Os sons dos monstros diminuem com a distância.

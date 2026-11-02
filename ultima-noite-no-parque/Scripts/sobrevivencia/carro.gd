@@ -11,67 +11,60 @@ extends Node2D
 
 signal mudou
 
+## v11: o cone com degradê foi tirado (ficava feio). Agora o farol é uma luz
+## REDONDA pixelada na frente do carro, igual às outras luzes do jogo.
+## Para os monstros ela funciona como qualquer luz (FonteLuz), e o Rastejante
+## que entra nela fica ofuscado.
+
 var bateria := 100.0         ## carga da bateria do carro (0-100)
 var bateria_removida := false
 var vasculhado := false
 var farois := false
-var obstaculos: Array = []   ## [centro, raio] que bloqueiam a luz
+var obstaculos: Array = []   ## (mantido por compatibilidade; não é mais usado)
 var sprite: Sprite2D
+var luz: FonteLuz
 
-var _cone: Node2D
-var _poligono := PackedVector2Array()
-var _acum := 0.0
-static var _mat_add: CanvasItemMaterial
-
-const ALCANCE := 170.0
-const ABERTURA := 0.42       ## ~24 graus para cada lado
+const RAIO_LUZ := 64.0
 const GASTO := 1.6           ## % de bateria por segundo
 
 
 func _ready() -> void:
 	add_to_group("carro")
-	_cone = Node2D.new()
-	_cone.name = "ConeFarol"
-	if _mat_add == null:
-		_mat_add = CanvasItemMaterial.new()
-		_mat_add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	_cone.material = _mat_add
-	_cone.draw.connect(_desenhar_cone)
-	var camada := MundoPixel.camada_luz_atual()
-	if camada:
-		camada.add_child(_cone)
-	else:
-		add_child(_cone)
-	_cone.visible = false
-
-
-func _enter_tree() -> void:
-	Iluminacao.registrar_cone(self)
-
-
-func _exit_tree() -> void:
-	Iluminacao.remover(self)
-	if is_instance_valid(_cone) and _cone.get_parent() != self:
-		_cone.queue_free()
+	luz = FonteLuz.criar(RAIO_LUZ, Color(1.0, 0.92, 0.65, 0.5))
+	luz.position = Vector2(30 + RAIO_LUZ * 0.7, -6)
+	luz.ligada = false
+	add_child(luz)
 
 
 func origem_farol() -> Vector2:
 	return global_position + Vector2(30, -9)
 
 
+## Centro da luz dos faróis (no chão, na frente do carro).
+func ponto_luz() -> Vector2:
+	return luz.global_position if luz else global_position
+
+
 func farois_ligados() -> bool:
 	return farois and bateria > 0.0
 
 
+## Mantido para o código antigo: agora o farol não é mais um cone.
 func poligono_global() -> PackedVector2Array:
-	return _poligono
+	return PackedVector2Array()
+
+
+## O ponto está dentro da luz dos faróis?
+func iluminando(pos: Vector2) -> bool:
+	return farois_ligados() and pos.distance_to(ponto_luz()) < RAIO_LUZ * 0.85
 
 
 func ligar_farois(sim: bool) -> bool:
 	if sim and (bateria <= 0.0 or bateria_removida):
 		return false
 	farois = sim
-	_recalcular()
+	if luz:
+		luz.ligada = farois_ligados()
 	_atualizar_sprite()
 	mudou.emit()
 	return true
@@ -88,6 +81,13 @@ func remover_bateria() -> int:
 	return qtd
 
 
+## v11: colocar uma bateria de volta (para a fuga no final).
+func recolocar_bateria() -> void:
+	bateria_removida = false
+	bateria = maxf(bateria, 60.0)
+	mudou.emit()
+
+
 func _process(delta: float) -> void:
 	if not farois:
 		return
@@ -95,28 +95,8 @@ func _process(delta: float) -> void:
 	if bateria <= 0.0:
 		ligar_farois(false)
 		return
-	_acum += delta
-	if _acum > 0.25:  # o cone só é recalculado 4x por segundo (economia)
-		_acum = 0.0
-		_recalcular()
-
-
-func _recalcular() -> void:
-	if farois_ligados():
-		_poligono = FarolCone.poligono(origem_farol(), 0.0, ALCANCE, ABERTURA, obstaculos)
-	else:
-		_poligono = PackedVector2Array()
-	_cone.visible = farois_ligados()
-	_cone.queue_redraw()
-
-
-func _desenhar_cone() -> void:
-	if _poligono.size() < 3:
-		return
-	var intensidade := clampf(bateria / 40.0, 0.35, 1.0)  # bateria fraca = luz fraca
-	FarolCone.desenhar(_cone, origem_farol(), _poligono, Color(1.0, 0.92, 0.65), intensidade)
-	# brilho dos próprios faróis
-	_cone.draw_rect(Rect2(origem_farol() + Vector2(-2, -2), Vector2(4, 4)), Color(0.6, 0.55, 0.35))
+	if luz and luz._luz:   # bateria fraca = luz fraca
+		luz._luz.energia = clampf(bateria / 40.0, 0.4, 1.0)
 
 
 func _atualizar_sprite() -> void:

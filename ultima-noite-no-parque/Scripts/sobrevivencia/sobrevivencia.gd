@@ -23,12 +23,17 @@ extends Node2D
 ## ============================================================
 
 const INTERIOR := Vector2(4000, 0)            ## onde fica a cabana por dentro
-const LIMITES := Rect2(-1240, -650, 2740, 1300)  ## área jogável lá fora
+const LIMITES := Rect2(-1240, -1250, 3640, 2500)  ## área jogável lá fora (v11: mapa bem maior)
 const CABANA_RET := Rect2(686, -162, 148, 58)   ## parede da cabana (de fora) — termina em y = -104
 const CAMADA_GRADE := 16                         ## camada só do jogador (grade da varanda)
 const LAGO_CENTRO := Vector2(1090, -300)
 const LAGO_RAIO := Vector2(265, 155)
-const NOITES_PARA_VENCER := 5
+## v11: não existe mais "resgate em 5 dias". Você vai achando PISTAS e resgata
+## seus amigos (Marina, Rafa e Lucas). Com os três salvos, vocês fogem de carro.
+const AMIGOS := ["marina", "rafa", "lucas"]
+const NOMES_AMIGO := {"marina": "Marina", "rafa": "Rafa", "lucas": "Lucas"}
+const MAX_MONSTROS_MOBILE := 8
+const MAX_MONSTROS_PC := 11
 
 const VEL_ANDAR := 70.0
 const VEL_CORRER := 118.0
@@ -82,7 +87,7 @@ var lareira_luz: FonteLuz
 # Controle
 var _ocupado := false                  ## diálogo / criando / dormindo
 var _painel := false                   ## mochila ou criação aberta
-var _dormindo := false
+var _dormindo := false                 ## (v11: a cama não passa mais o tempo; fica sempre false)
 var _fim := false
 var _t_hud := 0.0
 var _t_ruido := 0.0
@@ -102,6 +107,10 @@ var sombras: Sombras
 var arvores_cortadas: Array = []       ## índices (ext.troncos) das árvores derrubadas
 var _golpes_arvore := {}
 var _alvo_corte: Interagivel           ## UM interagível que "pula" para a árvore mais perto
+var _alvo_lago: Interagivel            ## v11: idem, na margem do lago
+var pistas_achadas: Array = []         ## v11: índices de Pistas.LISTA já examinadas
+var amigos_resgatados: Array = []      ## v11: "marina", "rafa", "lucas"
+var _npcs := {}                        ## amigo -> SpritePersonagem dentro da cabana
 var _arvore_alvo := -1
 var _deitado := false
 var cartazes_lidos: Array = []
@@ -191,10 +200,12 @@ func _ready() -> void:
 	sombras.preparar_arvores(ext.camada_sombras, ext.troncos)
 	sombras.adicionar(player, 1.0, 1.0)
 	_criar_objetos_v10()
+	hs.fonte_pistas = _texto_pistas
 	hud.pediu_salvar.connect(func(): salvar_agora("pausa"))
 	_carregar()
 	_colocar_jogador_fora(Vector2(760, -60))
 	_criar_coletaveis_do_chao()
+	_criar_pistas_e_resgates()
 	_espalhar_recursos()
 	_atualizar_ambiente()
 	_atualizar_hud()
@@ -258,6 +269,9 @@ func _criar_colisoes_fora() -> void:
 	_retangulo(grade, Rect2(832, -104, 6, 26))     # lado direito
 	_retangulo(grade, Rect2(686, -84, 46, 5))      # frente, à esquerda da escada
 	_retangulo(grade, Rect2(788, -84, 46, 5))      # frente, à direita da escada
+	# v11: prédios dos lugares novos
+	for rr in ParqueExterior.LOCAIS_COLISAO:
+		_retangulo(corpo, rr)
 	# lago (polígono em forma de elipse)
 	var pts := PackedVector2Array()
 	for i in 24:
@@ -343,17 +357,16 @@ func _criar_interagiveis() -> void:
 		["portao", Vector2(-1225, 0), 30.0, "EXAMINAR"],
 	]:
 		ext.add_child(Interagivel.criar(d[0], d[1], d[2], d[3]))
-	# beira do lago: vários pontos em volta (beber e pescar)
-	for ang in [0.35, 1.2, 1.9, 2.6, 3.3, 4.2, 5.4]:
-		var p := LAGO_CENTRO + Vector2(cos(ang) * (LAGO_RAIO.x + 12), sin(ang) * (LAGO_RAIO.y + 12))
-		if LIMITES.grow(-10).has_point(p):
-			ext.add_child(Interagivel.criar("lago", p.round(), 26.0, "LAGO"))
+	# v11: a beira do lago INTEIRA funciona (beber, pescar, covo). Antes só 7 pontos
+	# fixos tinham o botão. Agora UM interagível acompanha você pela margem.
+	_alvo_lago = Interagivel.criar("lago", Vector2(-99999, -99999), 20.0, "LAGO")
+	ext.add_child(_alvo_lago)
 	# dentro da cabana (posições locais)
 	for d in [
 		["sair", Vector2(144, 184), 14.0, "PORTA"],
 		["janela_cima", Vector2(206, 6), 16.0, "JANELA"],
 		["janela_lado", Vector2(278, 100), 14.0, "JANELA"],
-		["cama", Vector2(21, 46), 14.0, "DORMIR"],
+		["cama", Vector2(21, 46), 14.0, "DEITAR"],
 		["lareira", Vector2(22, 104), 14.0, "LAREIRA"],
 		["despensa", Vector2(35, 170), 16.0, "VASCULHAR"],
 	]:
@@ -383,7 +396,8 @@ func _intro() -> void:
 	hud.modo_conversa(true)
 	await get_tree().create_timer(0.6).timeout
 	await hud.dialogo.mensagem("O sol nasceu. Você sobreviveu à primeira noite… mas o portão do parque está trancado.")
-	await hud.dialogo.mensagem("O rádio disse: o resgate chega em 5 dias. Você precisa aguentar 5 NOITES.")
+	await hud.dialogo.mensagem("Marina, Rafa e Lucas sumiram. Ninguém vem buscar vocês. Se alguém vai salvar seus amigos, é você.")
+	await hud.dialogo.mensagem("Outras pessoas já passaram por este parque. Procure PISTAS pelo mapa (o botão PISTAS mostra o que você descobriu).")
 	await hud.dialogo.mensagem("De dia: junte madeira, pedras e comida. Galhos, TOCOS e TRONCOS CAÍDOS no chão viram madeira!")
 	await hud.dialogo.mensagem("Chegue perto: aparece uma setinha em cima e o botão vira PEGAR. Toque nele (ou aperte E).")
 	await hud.dialogo.mensagem("Com madeira e pedra, crie uma BANCADA (botão CRIAR) e coloque dentro da cabana.")
@@ -405,6 +419,9 @@ func _physics_process(delta: float) -> void:
 		return
 	if _deitado:
 		_atualizar_deitado(delta)
+	if jogador_area == "dentro" and not amigos_resgatados.is_empty():
+		# v11: os amigos resgatados ficam na cabana e te acalmam
+		status.estresse = maxf(status.estresse - 0.3 * amigos_resgatados.size() * delta, 0.0)
 	_movimento(delta)
 	_luzes(delta)
 	_t_ataque = maxf(_t_ataque - delta, 0.0)
@@ -438,6 +455,7 @@ func _physics_process(delta: float) -> void:
 		_conferir_monstros()
 		_destacar_coletavel()
 		_procurar_arvore()
+		_procurar_margem()
 		sombras.hora = ciclo.hora
 
 
@@ -633,6 +651,7 @@ func _mudou_fase(fase: String) -> void:
 func _hora_cheia(h: int) -> void:
 	if ciclo.eh_noite() and h != 19:
 		_spawn_da_hora(h)
+	_aparicoes(h)
 	_covos_hora()
 	_talvez_lucas(h)
 	# v10: autosave de hora em hora de dia (de noite só se estiver seguro)
@@ -642,9 +661,6 @@ func _hora_cheia(h: int) -> void:
 
 func _novo_dia(dia: int) -> void:
 	registro.append("dia:%d" % dia)
-	if dia > NOITES_PARA_VENCER:
-		_vitoria()
-		return
 	for a in aberturas.values():
 		a.desgastar()     # madeira racha, prego solta: reforce de novo à noite!
 	_espalhar_recursos()
@@ -654,27 +670,77 @@ func _novo_dia(dia: int) -> void:
 
 
 ## Quem aparece em cada hora da noite (fica mais difícil a cada noite).
+## v11: mais monstros, mais horas e dois monstros novos (Uivador e Imitador).
 func _spawn_da_hora(h: int) -> void:
 	var n := ciclo.noite_numero()
 	match h:
 		19:
 			spawnar("observador")
 			spawnar("rastejante")
+			if n >= 2:
+				spawnar("uivador")
 		20:
+			spawnar("imitador")
 			if n >= 2:
 				spawnar("sombra")
 		21:
-			if n >= 2:
-				spawnar("rastejante")
+			spawnar("rastejante")
+			if n >= 3:
+				spawnar("uivador")
 		22:
 			if n == 3 or n >= 5:
 				spawnar("colosso")
+			elif n >= 2:
+				spawnar("rastejante")
 		23:
 			if n >= 3:
 				spawnar("rastejante")
+				spawnar("imitador")
 		0:
+			spawnar("uivador")
 			if n >= 4:
 				spawnar("sombra")
+		1:
+			if n >= 2:
+				spawnar("rastejante")
+		2:
+			if n >= 4:
+				spawnar("uivador")
+			if n >= 6:
+				spawnar("colosso")
+		3:
+			spawnar("observador")
+
+
+## v11: no fim da tarde já dá para ver coisas se mexendo longe; de dia, às vezes,
+## o Observador aparece parado lá longe entre as árvores… e some.
+func _aparicoes(h: int) -> void:
+	if h == 18 and jogador_area == "fora":
+		var m := spawnar("rastejante")
+		if m:
+			m.alvo = ponto_valido(player.global_position + Vector2(260, 0).rotated(_rng.randf() * TAU))
+	elif h in [10, 14] and _rng.randf() < 0.4 and jogador_area == "fora" and ciclo.dia >= 2:
+		var o := spawnar("observador")
+		if o:
+			get_tree().create_timer(14.0, false).timeout.connect(func():
+				if is_instance_valid(o):
+					o.ir_embora())
+
+
+## Imitador chamando você com a voz de um amigo.
+func imitador_chamou(m: Monstro) -> void:
+	var nome: String = NOMES_AMIGO.get(m.disfarce, "?")
+	var d := m.global_position.distance_to(player.global_position)
+	Sons.tocar(self, "voz", -4.0 - d / 40.0, 1.15 if m.disfarce == "marina" else 0.85)
+	hs.avisar("(a voz do %s, vindo da floresta) \"…me ajuda…\"" % nome if m.disfarce != "marina" else "(a voz da Marina, vindo da floresta) \"…me ajuda…\"")
+	status.estresse = minf(status.estresse + 3.0, 100.0)
+
+
+func imitador_revelado(m: Monstro) -> void:
+	if m.global_position.distance_to(player.global_position) < 260.0:
+		hs.avisar("NÃO É %s!" % NOMES_AMIGO.get(m.disfarce, "?").to_upper())
+		status.estresse = minf(status.estresse + 10.0, 100.0)
+		tremer_tela(2.0)
 
 
 ## O monstro do lago aparece toda noite (mas só ataca quem chega na beira).
@@ -687,7 +753,18 @@ func spawnar_lago() -> MonstroAgua:
 	return monstro_lago
 
 
+func _qtd_monstros() -> int:
+	return get_tree().get_nodes_in_group("monstro").size()
+
+
 func spawnar(tipo: String, pos := Vector2.INF) -> Monstro:
+	# v11: limite de monstros ao mesmo tempo (protege o celular)
+	if _qtd_monstros() >= (MAX_MONSTROS_MOBILE if GameData.eh_mobile else MAX_MONSTROS_PC):
+		return null
+	if tipo == "imitador":
+		var faltam := _amigos_faltando()
+		if faltam.is_empty():
+			tipo = "rastejante"
 	if pos == Vector2.INF:
 		var centro := player.global_position if jogador_area == "fora" else Vector2(760, -40)
 		for tentativa in 20:
@@ -697,7 +774,12 @@ func spawnar(tipo: String, pos := Vector2.INF) -> Monstro:
 			if p.distance_to(centro) > 300.0 and not Iluminacao.esta_iluminado(p, 30.0):
 				break
 	var m := Monstro.criar(tipo, pos, self)
+	if tipo == "imitador":
+		var faltam := _amigos_faltando()
+		m.disfarce = faltam[_rng.randi() % faltam.size()]
 	ext.arvores.add_child(m)
+	if tipo == "uivador":
+		Sons.tocar(self, "uivo", -14.0, _rng.randf_range(0.85, 1.05))   # uivo longe
 	if tipo != "sombra":   # a Sombra é fumaça: não faz sombra
 		sombras.adicionar(m, 1.4 if tipo == "colosso" else 1.0, 1.6 if tipo == "observador" else 1.0)
 	registro.append("spawn:" + tipo)
@@ -825,6 +907,15 @@ func interagir(id: String, alvo: Interagivel = null) -> void:
 	if id.begins_with("covo_"):
 		_mexer_covo(int(id.trim_prefix("covo_")))
 		return
+	if id.begins_with("pista_"):
+		await _examinar_pista(int(id.trim_prefix("pista_")), alvo)
+		return
+	if id.begins_with("resgate_"):
+		await _tentar_resgate(id.trim_prefix("resgate_"))
+		return
+	if id.begins_with("amigo_"):
+		await _falar_amigo(id.trim_prefix("amigo_"))
+		return
 	match id:
 		"entrar":
 			await _entrar()
@@ -848,12 +939,7 @@ func interagir(id: String, alvo: Interagivel = null) -> void:
 				"PREGAR TÁBUAS (+50)": reforcar("janela_dir", "barricada")
 				"REFORÇO DE METAL (+100)": reforcar("janela_dir", "reforco")
 		"cama":
-			var op: Array = ["DEITAR (acalma a mente)", "DORMIR (passa o tempo)"]
-			var r := await hs.escolher("CAMA", op)
-			if r.begins_with("DEITAR"):
-				deitar()
-			elif r.begins_with("DORMIR"):
-				await dormir()
+			deitar()   # v11: só DEITAR (a mente melhora). O tempo NUNCA acelera.
 		"cortar":
 			cortar_arvore()
 		"barco":
@@ -879,7 +965,7 @@ func interagir(id: String, alvo: Interagivel = null) -> void:
 				_colocar_covo()
 			if r == "BEBER ÁGUA":
 				status.energia = minf(status.energia + 15.0, 100.0)
-				Sons.tocar(self, "passo", -6.0, 0.6)
+				Sons.tocar(self, "beber", -6.0, 0.9)
 				ext.agua.respingo(_ponto_lago_perto(), 0.8)
 				ruido(player.global_position, 30.0)
 				hs.avisar("Você bebe a água gelada do lago e desperta. (+15 energia)")
@@ -905,8 +991,9 @@ func _entrar() -> void:
 	_ocupado = true
 	player.definir_pode_mover(false)
 	await _fazer_fade(1.0, 0.25)
-	Sons.tocar(self, "rangido", -6.0)
+	Sons.tocar(self, "porta", -6.0)
 	jogador_area = "dentro"
+	player.som_passo = "passo_madeira"
 	player.reparent(cab.objetos, false)
 	player.position = Vector2(144, 168)
 	_camera_dentro()
@@ -922,7 +1009,7 @@ func _sair() -> void:
 	_ocupado = true
 	player.definir_pode_mover(false)
 	await _fazer_fade(1.0, 0.25)
-	Sons.tocar(self, "rangido", -6.0)
+	Sons.tocar(self, "porta", -6.0, 0.95)
 	_colocar_jogador_fora(Vector2(760, -92))
 	_atualizar_ambiente()
 	await _fazer_fade(0.0, 0.25)
@@ -934,6 +1021,7 @@ func _sair() -> void:
 
 func _colocar_jogador_fora(pos: Vector2) -> void:
 	jogador_area = "fora"
+	player.som_passo = "passo"
 	if player.get_parent() != ext.arvores:
 		player.reparent(ext.arvores, false)
 	player.position = pos
@@ -1019,7 +1107,7 @@ func acender_fogueira(gratis := false) -> bool:
 	fogueira_luz.ligada = true
 	ext.fogueira_acesa = true
 	if not _silencioso:
-		Sons.tocar(self, "clique", -4.0, 0.7)
+		Sons.tocar(self, "fosforo", -4.0)
 		hs.avisar("Fogueira acesa! Luz forte lá fora por ~8 horas.")
 	return true
 
@@ -1045,6 +1133,7 @@ func acender_lareira(gratis := false) -> bool:
 	cab.lareira_acesa = true
 	cab.luz_acesa = true
 	if not _silencioso:
+		Sons.tocar(self, "fosforo", -4.0, 0.9)
 		hs.avisar("Lareira acesa. Cuidado: com a cortina aberta, a luz aparece lá fora!")
 	return true
 
@@ -1071,8 +1160,12 @@ func _menu_carro() -> void:
 	if not carro.bateria_removida:
 		op.append("DESLIGAR FARÓIS" if carro.farois else "LIGAR FARÓIS (%d%%)" % roundi(carro.bateria))
 		op.append("TIRAR A BATERIA")
+	if _amigos_faltando().is_empty():
+		op.push_front("FUGIR COM TODOS")
 	var r := await hs.escolher("CARRO", op)
-	if r == "SAIR DO CARRO":
+	if r == "FUGIR COM TODOS":
+		await _fugir()
+	elif r == "SAIR DO CARRO":
 		_sair_do_carro()
 	elif r == "ESCONDER-SE NO CARRO":
 		_esconder_no_carro()
@@ -1121,7 +1214,12 @@ func _coletar(c: Coletavel) -> void:
 	hs.avisar("+%d %s" % [c.qtd - sobra, Itens.nome(c.item)])
 	if c.item not in achados:
 		achados.append(c.item)
-	Sons.tocar(self, "item" if c.ruido <= 0.0 else "galho", -8.0)
+	var som_c := "item"
+	if c.item == "pedra":
+		som_c = "pedra"
+	elif c.ruido > 0.0:
+		som_c = "galho"
+	Sons.tocar(self, som_c, -8.0)
 	ruido(c.global_position, c.ruido)
 	if sobra > 0:
 		c.qtd = sobra
@@ -1183,13 +1281,16 @@ func _usar_item(id: String, slot: int) -> bool:
 		"fruta":
 			status.fome = minf(status.fome + 20.0, 100.0)
 			gastar.call()
+			Sons.tocar(self, "comer", -8.0)
 		"enlatado":
 			status.fome = minf(status.fome + 45.0, 100.0)
 			gastar.call()
+			Sons.tocar(self, "comer", -8.0, 0.9)
 			ruido(player.global_position, 25.0)   # abrir a lata faz barulhinho
 		"agua":
 			status.energia = minf(status.energia + 25.0, 100.0)
 			gastar.call()
+			Sons.tocar(self, "beber", -8.0)
 		"ervas":
 			status.vida = minf(status.vida + 10.0, 100.0)
 			status.estresse = maxf(status.estresse - 10.0, 0.0)
@@ -1202,6 +1303,7 @@ func _usar_item(id: String, slot: int) -> bool:
 			gastar.call()
 			Sons.tocar(self, "papel", -10.0, 0.8)
 		"fruta_assada":
+			Sons.tocar(self, "comer", -8.0, 1.1)
 			status.fome = minf(status.fome + 25.0, 100.0)
 			status.estresse = maxf(status.estresse - 5.0, 0.0)
 			gastar.call()
@@ -1227,15 +1329,18 @@ func _usar_item(id: String, slot: int) -> bool:
 				status.vida = maxf(status.vida - 5.0, 1.0)
 				hs.avisar("Peixe cru… sua barriga reclamou. (-5 vida)")
 		"peixe_assado":
+			Sons.tocar(self, "comer", -8.0, 0.95)
 			status.fome = minf(status.fome + 40.0, 100.0)
 			status.vida = minf(status.vida + 5.0, 100.0)
 			gastar.call()
 		"ensopado":
+			Sons.tocar(self, "beber", -8.0, 0.8)
 			status.fome = minf(status.fome + 50.0, 100.0)
 			status.vida = minf(status.vida + 15.0, 100.0)
 			status.energia = minf(status.energia + 20.0, 100.0)
 			gastar.call()
 		"cha":
+			Sons.tocar(self, "beber", -8.0, 1.1)
 			status.estresse = maxf(status.estresse - 35.0, 0.0)
 			status.energia = minf(status.energia + 10.0, 100.0)
 			gastar.call()
@@ -1262,6 +1367,7 @@ func _usar_item(id: String, slot: int) -> bool:
 				return false
 			inv.remover("fosforos")
 			gastar.call()
+			Sons.tocar(self, "fosforo", -6.0)
 			_equipar_luz("tocha")
 			tocha_tempo = 120.0
 			lanterna_ligada = false
@@ -1491,84 +1597,6 @@ func _em_seguranca() -> bool:
 
 
 # ===============================================================
-# DORMIR
-# ===============================================================
-## Dormir passa o tempo rápido. De noite: dorme até as 6h. De dia: cochilo de 3 horas.
-## Enquanto você dorme, os monstros lá fora continuam atacando a casa (simulado
-## hora a hora). Se algo entrar, você ACORDA.
-func dormir() -> void:
-	if _dormindo:
-		return
-	levantar()
-	for m in get_tree().get_nodes_in_group("monstro"):
-		if m.area == "dentro":
-			hs.avisar("Não dá para dormir com ISSO aqui dentro!")
-			return
-	if not ciclo.eh_noite() and status.energia > 60.0:
-		hs.avisar("Você não está com sono.")
-		return
-	_dormindo = true
-	_ocupado = true
-	player.definir_pode_mover(false)
-	ciclo.velocidade = 0.0
-	for m in get_tree().get_nodes_in_group("monstro"):
-		m.process_mode = Node.PROCESS_MODE_DISABLED
-	await _fazer_fade(1.0, 0.6)
-	var horas := 3
-	if ciclo.eh_noite() or ciclo.fase == "entardecer":
-		horas = int(ceil(fmod(30.0 - ciclo.hora, 24.0))) if ciclo.hora > 6.0 else int(ceil(6.0 - ciclo.hora))
-	var acordou := ""
-	for h in horas:
-		ciclo.avancar(CicloDia.SEGUNDOS_POR_HORA)
-		status.energia = minf(status.energia + 11.0, 100.0)
-		status.fome = maxf(status.fome - 4.0, 0.0)
-		status.estresse = maxf(status.estresse - 6.0, 0.0)
-		acordou = _simular_hora_dormindo()
-		if acordou != "" or _fim:
-			break
-		await get_tree().create_timer(0.12).timeout
-	for m in get_tree().get_nodes_in_group("monstro"):
-		m.process_mode = Node.PROCESS_MODE_INHERIT
-	ciclo.velocidade = 1.0
-	_dormindo = false
-	if _fim:
-		return
-	_atualizar_ambiente()
-	await _fazer_fade(0.0, 0.6)
-	_ocupado = false
-	player.definir_pode_mover(true)
-	if acordou != "":
-		hs.avisar(acordou)
-		tremer_tela(4.0)
-		status.estresse = minf(status.estresse + 25.0, 100.0)
-	registro.append("dormiu:%d" % horas)
-	_atualizar_hud()
-
-
-## Uma hora de noite com você dormindo: cada monstro lá fora bate na casa.
-func _simular_hora_dormindo() -> String:
-	if not ciclo.eh_noite():
-		return ""
-	for m in get_tree().get_nodes_in_group("monstro"):
-		if m.area != "fora" or m.tipo_monstro == "observador" or m.indo_embora:
-			continue
-		var a := escolher_abertura(m)
-		if a == null:
-			continue
-		if a.aberta():
-			if m.tipo_monstro != "colosso":
-				m.process_mode = Node.PROCESS_MODE_INHERIT
-				monstro_entra(m, a)
-				m._mudar(Monstro.Estado.ATTACK)
-				return "Um barulho te acorda… tem alguma coisa DENTRO da cabana!"
-		else:
-			a.danificar(45.0 if m.tipo_monstro == "colosso" else 7.0)
-			if a.aberta():
-				return "CRAAACK! Você acorda com a barricada quebrando!"
-	return ""
-
-
-# ===============================================================
 # FIM: MORTE E VITÓRIA
 # ===============================================================
 func _morrer() -> void:
@@ -1582,7 +1610,7 @@ func _morrer() -> void:
 	# e pular as noites difíceis). O save da Parte 2 é apagado.
 	GameData.parte2 = {}
 	GameData.salvar_jogo()
-	await _tela_final("VOCÊ NÃO SOBREVIVEU", "Você aguentou até a noite %d.\nA Parte 2 vai começar do início." % ciclo.noite_numero(), true)
+	await _tela_final("VOCÊ NÃO SOBREVIVEU", "Você aguentou até a noite %d e salvou %d de 3 amigos.\nA Parte 2 vai começar do início." % [ciclo.noite_numero(), amigos_resgatados.size()], true)
 
 
 func _vitoria() -> void:
@@ -1593,7 +1621,7 @@ func _vitoria() -> void:
 	player.definir_pode_mover(false)
 	GameData.parte2 = {}
 	GameData.salvar_jogo()
-	await _tela_final("VOCÊ SOBREVIVEU", "Ao amanhecer do 6º dia, um motor ronca no portão.\nO RESGATE CHEGOU.", false)
+	await _tela_final("VOCÊS SAÍRAM JUNTOS", "O Rafa arrebenta a corrente do portão com o macaco do carro.\nMarina, Rafa, Lucas e você. Os quatro.\nAtrás de vocês, o parque fica em silêncio… esperando os próximos.", false)
 
 
 func _tela_final(titulo: String, texto: String, tentar: bool) -> void:
@@ -1755,7 +1783,7 @@ func _destacar_coletavel() -> void:
 # ===============================================================
 # RECURSOS ESPALHADOS (renascem todo dia)
 # ===============================================================
-const RECURSOS_DIA := {"madeira": 14, "pedra": 8, "ervas": 3, "fruta": 4, "corda": 2, "metal": 3, "tecido": 2, "agua": 1, "fosforos": 1, "bateria": 1, "enlatado": 1}
+const RECURSOS_DIA := {"madeira": 22, "pedra": 12, "ervas": 5, "fruta": 6, "corda": 3, "metal": 5, "tecido": 3, "agua": 2, "fosforos": 2, "bateria": 1, "enlatado": 2}
 
 
 func _espalhar_recursos() -> void:
@@ -1779,8 +1807,14 @@ func _lugar_livre() -> Vector2:
 	for t in 30:
 		# mais recursos perto da cabana; os raros ficam mais longe (vale o risco)
 		var ang := _rng.randf() * TAU
-		var dist := _rng.randf_range(80.0, 620.0)
+		var dist := _rng.randf_range(80.0, 1300.0)   # v11: mapa maior
 		var p := (Vector2(760, -20) + Vector2(cos(ang), sin(ang) * 0.8) * dist).round()
+		var perto_local := false
+		for l in ParqueExterior.LOCAIS.values():
+			if p.distance_to(l) < 60.0:
+				perto_local = true
+		if perto_local:
+			continue
 		if not LIMITES.grow(-30).has_point(p):
 			continue
 		if ((p - LAGO_CENTRO) / (LAGO_RAIO + Vector2(16, 16))).length() < 1.0:
@@ -1814,16 +1848,33 @@ func _atualizar_hud() -> void:
 
 
 func _atualizar_objetivo() -> void:
+	var faltam := _amigos_faltando()
+	if faltam.is_empty():
+		if ciclo.eh_noite():
+			hud.mostrar_objetivo("Aguentem até o amanhecer.", "Todos estão salvos. De dia, vão até o CARRO e fujam.")
+		else:
+			hud.mostrar_objetivo("FUJAM!", "Vá até o CARRO e escolha FUGIR COM TODOS.")
+		return
 	if ciclo.eh_noite():
-		hud.mostrar_objetivo("Sobreviva até o amanhecer.", "Noite %d de %d. Fique na luz e longe do barulho." % [ciclo.noite_numero(), NOITES_PARA_VENCER])
-	elif ciclo.fase == "entardecer":
+		hud.mostrar_objetivo("Sobreviva até o amanhecer.", "Noite %d. Fique na luz e longe do barulho. Cuidado com vozes conhecidas." % ciclo.noite_numero())
+		return
+	if ciclo.fase == "entardecer":
 		hud.mostrar_objetivo("Volte para a cabana!", "Reforce porta e janelas antes das 19h.")
-	elif bancada_pos == Vector2.INF and inv.contar("madeira") < 4:
-		hud.mostrar_objetivo("Junte MADEIRA.", "Galhos, tocos e troncos caídos no chão. Chegue perto e toque em PEGAR.")
-	elif bancada_pos == Vector2.INF:
-		hud.mostrar_objetivo("Monte uma BANCADA.", "Junte 4 Madeira e 2 Pedras, CRIE a bancada e coloque dentro da cabana.")
+		return
+	# de dia: o próximo amigo que já dá para salvar, ou quantas pistas faltam
+	for a in AMIGOS:
+		if a in amigos_resgatados:
+			continue
+		if _pistas_do_amigo(a) >= Pistas.POR_AMIGO:
+			hud.mostrar_objetivo("Resgate %s!" % NOMES_AMIGO[a], "Vá até %s. %s" % [Pistas.LOCAL_NOME[a], Pistas.REQUISITO[a]])
+			return
+	if bancada_pos == Vector2.INF and ciclo.dia == 1 and inv.contar("madeira") < 4:
+		hud.mostrar_objetivo("Junte MADEIRA e procure pistas.", "Galhos, tocos e troncos caídos viram madeira. Brilhinhos no chão são PISTAS.")
 	else:
-		hud.mostrar_objetivo("Prepare-se para a noite.", "Junte recursos e crie tábuas (madeira + corda) para as janelas.")
+		var total := 0
+		for a in AMIGOS:
+			total += mini(_pistas_do_amigo(a), Pistas.POR_AMIGO)
+		hud.mostrar_objetivo("Procure seus amigos.", "Pistas dos amigos: %d de %d. Explore as trilhas: guarita, lago, caverna e o acampamento." % [total, Pistas.POR_AMIGO * 3])
 
 
 # ===============================================================
@@ -1845,6 +1896,7 @@ func _dados() -> Dictionary:
 		"paginas": paginas_lidas, "barco": barco_vasculhado, "covos": _dados_covos(),
 		"lucas_dia": lucas_visto_dia, "fogueira": fogueira_luz.duracao if fogueira_luz and fogueira_luz.ativa() else 0.0,
 		"lareira": lareira_luz.duracao if lareira_luz and lareira_luz.ativa() else 0.0,
+		"pistas": pistas_achadas, "amigos": amigos_resgatados,
 	}
 
 
@@ -1929,6 +1981,9 @@ func _carregar() -> void:
 	for i in d.get("cortadas", []):
 		_derrubar_arvore(int(i), false)
 	cartazes_lidos = d.get("cartazes", [])
+	pistas_achadas = d.get("pistas", [])
+	for a in d.get("amigos", []):
+		_amigo_na_cabana(str(a))
 	paginas_lidas = int(d.get("paginas", 0))
 	barco_vasculhado = bool(d.get("barco", false))
 	lucas_visto_dia = int(d.get("lucas_dia", 0))
@@ -1975,21 +2030,22 @@ func _criar_objetos_v10() -> void:
 	ext.add_child(_alvo_corte)
 
 
+## v11: o cartaz aparece NA TELA, com o rosto da pessoa.
 func _ler_cartaz(i: int) -> void:
 	if i < 0 or i >= ObjetosV10.CARTAZES.size():
 		return
+	var c: Dictionary = ObjetosV10.CARTAZES[i]
 	_ocupado = true
 	player.definir_pode_mover(false)
-	hud.modo_conversa(true, "leitura")
 	Sons.tocar(self, "papel", -6.0)
-	for t in ObjetosV10.CARTAZES[i]["texto"]:
-		await hud.dialogo.mensagem(t)
+	await hs.mostrar_cartaz(c, Retrato.textura("cartaz_%d" % i, c["rosto"]))
 	if i not in cartazes_lidos:
 		cartazes_lidos.append(i)
 		status.estresse = minf(status.estresse + 4.0, 100.0)   # dá um arrepio...
 		if cartazes_lidos.size() == ObjetosV10.CARTAZES.size():
-			await hud.dialogo.mensagem("Quatro cartazes, quatro décadas. Todos sumiram aqui… e ninguém nunca encontrou nenhum deles.")
-	hud.modo_conversa(false, "leitura")
+			hud.modo_conversa(true, "leitura")
+			await hud.dialogo.mensagem("Quatro cartazes, quatro épocas. Todos sumiram aqui… e ninguém nunca encontrou nenhum deles.")
+			hud.modo_conversa(false, "leitura")
 	_ocupado = false
 	player.definir_pode_mover(not _painel)
 
@@ -2168,7 +2224,7 @@ func _atualizar_deitado(delta: float) -> void:
 	if lareira_luz and lareira_luz.ativa():
 		calma += 0.6          # o calor do fogo ajuda
 	status.estresse = maxf(status.estresse - calma * delta, 0.0)
-	status.energia = minf(status.energia + 0.5 * delta, 100.0)
+	status.energia = minf(status.energia + 1.5 * delta, 100.0)
 
 
 # ===============================================================
@@ -2311,3 +2367,241 @@ func _sons_ambiente(delta: float) -> void:
 			_t_coracao = 0.75 if perto else 1.1
 		else:
 			_t_coracao = 1.0
+
+
+# ===============================================================
+# v11 — LAGO: o botão LAGO funciona na margem inteira
+# ===============================================================
+func _procurar_margem() -> void:
+	var pos_alvo := Vector2(-99999, -99999)
+	if jogador_area == "fora" and not jogador_escondido:
+		var d := (player.global_position - LAGO_CENTRO) / LAGO_RAIO
+		var e := d.length()
+		# fora da água e a até ~30 px da beira
+		if e > 0.9 and e < 1.0 + 30.0 / LAGO_RAIO.y:
+			pos_alvo = (LAGO_CENTRO + d.normalized() * (LAGO_RAIO + Vector2(8, 8))).round()
+	if _alvo_lago.global_position.distance_to(pos_alvo) > 6.0:
+		_alvo_lago.global_position = pos_alvo
+
+
+# ===============================================================
+# v11 — PISTAS E RESGATE DOS AMIGOS
+# ===============================================================
+var _pista_nodes := {}
+
+
+func _criar_pistas_e_resgates() -> void:
+	for i in Pistas.LISTA.size():
+		if i in pistas_achadas:
+			continue
+		var n := Pistas.criar_no(i)
+		ext.arvores.add_child(n)
+		_pista_nodes[i] = n
+	for a in AMIGOS:
+		var acao := "ENTRAR"
+		match a:
+			"marina": acao = "PORTA"
+			"rafa": acao = "PORTÃO"
+			"lucas": acao = "ENTRAR"
+		ext.add_child(Interagivel.criar("resgate_" + a, Pistas.LOCAL[a], 18.0, acao))
+	# a faísca das pistas perto do jogador pisca (as longe nem são redesenhadas)
+	var t := Timer.new()
+	t.wait_time = 0.25
+	t.autostart = true
+	t.timeout.connect(func():
+		for n in _pista_nodes.values():
+			if is_instance_valid(n) and n.global_position.distance_squared_to(player.global_position) < 90000.0:
+				n.queue_redraw())
+	add_child(t)
+
+
+func _pistas_do_amigo(a: String) -> int:
+	var n := 0
+	for i in pistas_achadas:
+		if Pistas.LISTA[int(i)]["amigo"] == a:
+			n += 1
+	return n
+
+
+func _amigos_faltando() -> Array:
+	var r: Array = []
+	for a in AMIGOS:
+		if a not in amigos_resgatados:
+			r.append(a)
+	return r
+
+
+func _examinar_pista(i: int, _alvo: Interagivel) -> void:
+	if i in pistas_achadas or i < 0 or i >= Pistas.LISTA.size():
+		return
+	var d: Dictionary = Pistas.LISTA[i]
+	pistas_achadas.append(i)
+	_ocupado = true
+	player.definir_pode_mover(false)
+	hud.modo_conversa(true, "leitura")
+	Sons.tocar(self, "pista", -6.0)
+	await hud.dialogo.mensagem(d["texto"])
+	hud.modo_conversa(false, "leitura")
+	_ocupado = false
+	player.definir_pode_mover(not _painel)
+	if d["item"] != "":
+		_ganhar({d["item"]: 1})
+	if _pista_nodes.has(i) and is_instance_valid(_pista_nodes[i]):
+		_pista_nodes[i].queue_free()
+	_pista_nodes.erase(i)
+	registro.append("pista:%d" % i)
+	var a: String = d["amigo"]
+	if a != "":
+		var n := _pistas_do_amigo(a)
+		if n == Pistas.POR_AMIGO:
+			hs.anunciar("VOCÊ SABE ONDE %s ESTÁ" % NOMES_AMIGO[a].to_upper(), Color(0.95, 0.8, 0.4))
+			hs.avisar("%s está n%s. %s" % [NOMES_AMIGO[a], Pistas.LOCAL_NOME[a], Pistas.REQUISITO[a]])
+		else:
+			hs.avisar("Pista do %s: %d de %d" % [NOMES_AMIGO[a], n, Pistas.POR_AMIGO] if a != "marina" else "Pista da Marina: %d de %d" % [n, Pistas.POR_AMIGO])
+	_atualizar_objetivo()
+	salvar_agora("pista")
+
+
+func _tentar_resgate(a: String) -> void:
+	if a in amigos_resgatados:
+		hs.avisar("Não tem mais ninguém aqui.")
+		return
+	if _pistas_do_amigo(a) < Pistas.POR_AMIGO:
+		match a:
+			"marina": hs.avisar("A porta da guarita está coberta de raízes pretas. Tem alguma coisa estranha aqui… procure mais pistas.")
+			"rafa": hs.avisar("O portão da casa de barcos está acorrentado. Procure mais pistas.")
+			"lucas": hs.avisar("A caverna é escura e funda. Você ainda não tem certeza do que tem lá… procure mais pistas.")
+		return
+	# condição de cada resgate
+	match a:
+		"marina":
+			if not (inv.tem("machado") or inv.tem("machado_ferro")):
+				hs.avisar("Raízes pretas prendem a porta. Você precisa de um MACHADO.")
+				return
+			Sons.tocar(self, "machado", -2.0)
+			ruido(player.global_position, 120.0)
+		"rafa":
+			if not inv.tem("chave_barcos"):
+				hs.avisar("Corrente com cadeado. Falta a CHAVE (procure no acampamento abandonado).")
+				return
+			inv.remover("chave_barcos")
+			Sons.tocar(self, "clique", -2.0, 0.6)
+		"lucas":
+			var com_luz := (luz_equipada == "lanterna" and lanterna_ligada) or luz_equipada == "tocha"
+			if not com_luz:
+				hs.avisar("Escuro demais lá dentro. Acenda a LANTERNA ou uma TOCHA.")
+				return
+	_ocupado = true
+	player.definir_pode_mover(false)
+	await _fazer_fade(1.0, 0.4)
+	Sons.tocar(self, "resgate", -4.0)
+	await _fazer_fade(0.0, 0.4)
+	hud.modo_conversa(true, "leitura")
+	match a:
+		"marina":
+			await hud.dialogo.falar("Marina", "…é você? É VOCÊ! As raízes… elas apertavam toda vez que eu gritava.")
+		"rafa":
+			await hud.dialogo.falar("Rafa", "Cara… CARA! Três dias batendo nessa porta. Eles batiam de volta.")
+		"lucas":
+			await hud.dialogo.falar("Lucas", "Desliga essa luz não… por favor. Eu fiquei tanto tempo no escuro.")
+	await hud.dialogo.mensagem("%s vai correndo para a cabana. Lá vocês ficam mais seguros juntos." % NOMES_AMIGO[a])
+	hud.modo_conversa(false, "leitura")
+	_ocupado = false
+	player.definir_pode_mover(not _painel)
+	_amigo_na_cabana(a)
+	registro.append("resgatou:" + a)
+	status.estresse = maxf(status.estresse - 30.0, 0.0)
+	# o parque não gosta disso…
+	if ciclo.eh_noite():
+		spawnar("uivador")
+		spawnar("rastejante")
+	if _amigos_faltando().is_empty():
+		hs.anunciar("TODOS ESTÃO SALVOS", Color(0.9, 0.85, 0.5))
+	_atualizar_objetivo()
+	salvar_agora("resgate")
+
+
+## Coloca o amigo dentro da cabana (perto da cama dele).
+func _amigo_na_cabana(a: String) -> void:
+	if a not in AMIGOS or _npcs.has(a):
+		return
+	if a not in amigos_resgatados:
+		amigos_resgatados.append(a)
+	var sp := SpritePersonagem.new()
+	sp.personagem = a
+	sp.name = "Amigo_" + a
+	var p: Vector2 = CabanaInterior.PONTOS["cama_" + a] + Vector2(0, 14)
+	sp.position = p
+	cab.objetos.add_child(sp)
+	sp.configurar(a)
+	sombras.adicionar(sp, 0.9, 0.8)
+	cab.add_child(Interagivel.criar("amigo_" + a, p + Vector2(0, -4), 14.0, "FALAR"))
+	_npcs[a] = sp
+
+
+func _falar_amigo(a: String) -> void:
+	var falas: Array = Pistas.FALAS.get(a, ["…"])
+	_ocupado = true
+	player.definir_pode_mover(false)
+	hud.modo_conversa(true, "leitura")
+	await hud.dialogo.falar(NOMES_AMIGO[a], falas[_rng.randi() % falas.size()])
+	hud.modo_conversa(false, "leitura")
+	_ocupado = false
+	player.definir_pode_mover(not _painel)
+	status.estresse = maxf(status.estresse - 8.0, 0.0)
+
+
+## Texto do botão PISTAS.
+func _texto_pistas() -> String:
+	var t := "[b]SEUS AMIGOS[/b]\n"
+	for a in AMIGOS:
+		var n := _pistas_do_amigo(a)
+		if a in amigos_resgatados:
+			t += "[color=#8fd07a]■ %s — SALVO(A)! Está na cabana.[/color]\n" % NOMES_AMIGO[a]
+		elif n >= Pistas.POR_AMIGO:
+			t += "[color=#f0c060]■ %s — está n%s. %s[/color]\n" % [NOMES_AMIGO[a], Pistas.LOCAL_NOME[a], Pistas.REQUISITO[a]]
+		else:
+			t += "■ %s — pistas: %d de %d. Onde será?\n" % [NOMES_AMIGO[a], n, Pistas.POR_AMIGO]
+	if _amigos_faltando().is_empty():
+		t += "\n[color=#f0c060][b]Todos salvos! De dia, vão até o CARRO e fujam.[/b][/color]\n"
+	t += "\n[b]O QUE VOCÊ DESCOBRIU[/b]\n"
+	if pistas_achadas.is_empty():
+		t += "[color=#9a9488]Nada ainda. Procure brilhinhos no chão pelo parque.[/color]\n"
+	for i in pistas_achadas:
+		var d: Dictionary = Pistas.LISTA[int(i)]
+		var cor := "#e8d8a0" if d["amigo"] != "" else "#a8c0e0"
+		t += "[color=%s]• %s[/color]\n\n" % [cor, d["texto"]]
+	var outras := 0
+	for d in Pistas.LISTA:
+		if d["amigo"] == "":
+			outras += 1
+	var achadas_outras := 0
+	for i in pistas_achadas:
+		if Pistas.LISTA[int(i)]["amigo"] == "":
+			achadas_outras += 1
+	t += "[color=#9a9488]Histórias de outros visitantes: %d de %d. Cartazes lidos: %d de %d.[/color]" % [achadas_outras, outras, cartazes_lidos.size(), ObjetosV10.CARTAZES.size()]
+	return t
+
+
+## O FINAL: os quatro fogem de carro (só de dia: de noite eles estão lá fora).
+func _fugir() -> void:
+	if ciclo.eh_noite() or ciclo.fase == "entardecer":
+		hs.avisar("Agora não! De noite eles estão por toda parte. Esperem o sol.")
+		return
+	if carro.bateria_removida:
+		if inv.tem("bateria"):
+			inv.remover("bateria")
+			carro.recolocar_bateria()
+			hs.avisar("Você coloca uma bateria de volta no carro.")
+		else:
+			hs.avisar("O carro está sem bateria! Ache uma BATERIA para colocar de volta.")
+			return
+	_ocupado = true
+	player.definir_pode_mover(false)
+	Sons.tocar(self, "porta", -4.0, 0.8)
+	hud.modo_conversa(true, "leitura")
+	await hud.dialogo.falar("Marina", "Liga logo esse carro.")
+	await hud.dialogo.falar("Rafa", "Deixa o portão comigo.")
+	await hud.dialogo.falar("Lucas", "Ninguém olha para trás. Combinado?")
+	hud.modo_conversa(false, "leitura")
+	_vitoria()

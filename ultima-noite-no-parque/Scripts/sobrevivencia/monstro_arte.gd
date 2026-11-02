@@ -32,6 +32,8 @@ static func quadros(tipo: String) -> Array:
 			"rastejante": r = _rastejante(f)
 			"colosso": r = _colosso(f)
 			"sombra": r = _sombra(f)
+			"uivador": r = _uivador(f)
+			"imitador": r = _imitador(f)
 			_: r = _agua(f)
 		lista.append(r.textura(Color(0.02, 0.01, 0.03) if tipo != "sombra" else Color(0, 0, 0, 0.6)))
 	_cache[tipo] = lista
@@ -264,4 +266,68 @@ static func _agua(f: int) -> Relevo:
 	r.tubo(Vector2(30, 5), Vector2(27, 0), 1.5, 0.4, 6, "barbatana")
 	r.pintar(Vector2(33, 9), "olho", 10)
 	r.pintar(Vector2(34, 9), "olho", 10)
+	return r
+
+
+# ---------------------------------------------------------------
+# v11 — O UIVADOR: parecido com um lobo magro demais, pelo cinza
+# molhado, costelas aparecendo e olhos amarelos. Corre em 4 patas.
+# ---------------------------------------------------------------
+const PELO := [Color("101012"), Color("24242a"), Color("3c3c44"), Color("5a5a64"), Color("7e7e88")]
+
+
+static func _uivador(f: int) -> Relevo:
+	var r := Relevo.new(40, 24)
+	r.material("pelo", PELO, false, 0.35)
+	r.material("osso", OSSO, false, 0.4)
+	r.material("olho", [Color("ffd23a")], true)
+	r.material("boca", BOCA)
+	var passo := sin(f * PI / 2.0)
+	# patas (galope: dianteiras e traseiras em oposição)
+	r.tubo(Vector2(10, 14), Vector2(8 - passo * 3.0, 22), 1.3, 0.8, 0, "pelo")
+	r.tubo(Vector2(13, 14), Vector2(14 + passo * 3.0, 22), 1.2, 0.8, -1, "pelo")
+	r.tubo(Vector2(26, 14), Vector2(28 + passo * 3.0, 22), 1.3, 0.8, 0, "pelo")
+	r.tubo(Vector2(29, 14), Vector2(27 - passo * 3.0, 22), 1.2, 0.8, -1, "pelo")
+	# corpo comprido e magro, costas curvadas
+	r.curva(Vector2(7, 12), Vector2(18, 8 + passo * 0.6), Vector2(30, 11), 4.0, 4.4, 1, "pelo")
+	for k in 4:   # costelas
+		r.pintar(Vector2(17 + k * 2.4, 13), "osso", 2)
+	# rabo
+	r.curva(Vector2(6, 11), Vector2(2, 8), Vector2(1, 4 + passo), 1.4, 0.6, 1, "pelo", 4)
+	# cabeça e focinho
+	r.bola(Vector2(33, 9), Vector2(4.2, 3.6), 3.5, 2, "pelo")
+	r.tubo(Vector2(35, 10), Vector2(39, 11), 2.0, 1.4, 2, "pelo")
+	r.bola(Vector2(32, 4.5), Vector2(1.2, 2.2), 1.5, 3, "pelo")   # orelha
+	var abre := 0.5 if f % 2 == 0 else 1.5
+	r.tubo(Vector2(35, 12 + abre), Vector2(39, 12.5 + abre), 0.9, 0.7, 2, "boca")
+	r.pintar(Vector2(37, 12), "osso", 3)
+	r.pintar(Vector2(34, 8), "olho", 3)
+	return r
+
+
+# ---------------------------------------------------------------
+# v11 — O IMITADOR (forma verdadeira): de longe ele parece um dos seus
+# amigos. Quando a luz bate ou você chega perto, ele se revela: um corpo
+# pálido e torto, com uma boca vertical enorme no lugar do rosto.
+# ---------------------------------------------------------------
+static func _imitador(f: int) -> Relevo:
+	var r := Relevo.new(24, 40)
+	r.material("pele", [Color("1a1416"), Color("3a2e30"), Color("6a5a5a"), Color("9a8a86"), Color("cbbcb4")], false, 0.5)
+	r.material("boca", BOCA)
+	r.material("dente", OSSO)
+	r.material("olho", [Color("ffffff")], true)
+	var bal := sin(f * PI / 2.0)
+	r.tubo(Vector2(10, 39), Vector2(10.5, 27), 1.0, 1.4, 0, "pele")
+	r.tubo(Vector2(14, 39), Vector2(13.5, 27), 1.0, 1.4, 0, "pele")
+	r.curva(Vector2(12, 27), Vector2(12 + bal * 0.5, 19), Vector2(11, 12), 2.8, 2.4, 0, "pele")
+	r.curva(Vector2(9.5, 15), Vector2(4 - bal, 22), Vector2(2.5, 31), 1.0, 0.6, 1, "pele")
+	r.curva(Vector2(14.5, 15), Vector2(20 + bal, 22), Vector2(21.5, 31), 1.0, 0.6, 1, "pele")
+	r.bola(Vector2(11.5, 7), Vector2(4.2, 5.5), 4, 1, "pele")
+	# boca vertical abrindo o rosto inteiro
+	var abre := 0.8 if f % 2 == 0 else 1.6
+	r.caixa(Rect2(11.5 - abre, 3, abre * 2.0, 8.5), 1, 5, "boca", 0.5)
+	for y in [4, 6, 8, 10]:
+		r.pintar(Vector2(11.5 - abre, y), "dente", 6)
+		r.pintar(Vector2(11.5 + abre - 0.5, y + 1), "dente", 6)
+	r.pintar(Vector2(8.5, 5), "olho", 5)
 	return r

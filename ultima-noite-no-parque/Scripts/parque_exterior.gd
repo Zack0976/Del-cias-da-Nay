@@ -25,6 +25,28 @@ const PONTOS := {
 	"vista_portao": Vector2(-1110, 0),
 }
 
+## v11: MAPA MAIOR — lugares novos (pistas e os amigos desaparecidos)
+const LOCAIS := {
+	"guarita": Vector2(1900, -900),       ## guarita do guarda-florestal (norte)
+	"casa_barcos": Vector2(1130, -482),   ## casa de barcos (margem de cima do lago)
+	"caverna": Vector2(2080, 760),        ## caverna (sudeste, fim da trilha)
+	"acampamento": Vector2(-380, 720),    ## acampamento abandonado (sul da estrada)
+}
+## Colisão dos prédios novos (o controlador da Parte 2 transforma em paredes)
+const LOCAIS_COLISAO := [
+	Rect2(1872, -922, 56, 22),
+	Rect2(1098, -506, 64, 22),
+	Rect2(2032, 712, 96, 22), Rect2(2032, 734, 34, 22), Rect2(2094, 734, 34, 22),
+]
+## Trilhas de terra até os lugares novos (para o jogador não se perder)
+const TRILHAS_V11 := [
+	[Vector2(820, -100), Vector2(1200, -700), Vector2(1600, -800), Vector2(1890, -880)],
+	[Vector2(1200, -700), Vector2(1140, -520)],
+	[Vector2(1100, 280), Vector2(1500, 480), Vector2(1800, 640), Vector2(2070, 770)],
+	[Vector2(-360, 36), Vector2(-330, 380), Vector2(-380, 690)],
+]
+const CHAO := Rect2(-2000, -1700, 4900, 3400)   ## tamanho total desenhado
+
 const TRILHA := [Vector2(780, -40), Vector2(840, 40), Vector2(900, 120), Vector2(980, 190), Vector2(1060, 250), Vector2(1100, 280)]
 
 var cabana: Sprite2D
@@ -139,6 +161,7 @@ func _ready() -> void:
 	arvores.add_child(cabana)
 
 	_plantar_arvores_perto(rng)
+	_criar_locais()
 	if limites_solidos.has_area():
 		_preparar_sobrevivencia()
 	_criar_luzes()
@@ -150,20 +173,8 @@ func _ready() -> void:
 	add_child(_cortina)
 	_cortina.queue_redraw()
 
-	# Cone dos faróis: fica na camada de luz, com mistura aditiva (brilha no escuro)
-	_farol_node = Node2D.new()
-	_farol_node.name = "FarolCone"
-	_farol_node.visible = false
-	var mat := CanvasItemMaterial.new()
-	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	_farol_node.material = mat
-	_farol_node.draw.connect(_desenhar_farois.bind(_farol_node))
-	var camada := MundoPixel.camada_luz_atual()
-	if camada:
-		camada.add_child(_farol_node)
-		tree_exiting.connect(_apagar_cone)
-	else:
-		add_child(_farol_node)
+	# v11: o cone dos faróis (com degradê em faixas) foi tirado. O farol agora é
+	# só uma luz redonda pixelada na frente do carro (_luz_farol).
 
 
 func _process(delta: float) -> void:
@@ -220,6 +231,13 @@ func _livre(p: Vector2) -> bool:
 	for nome in ["placa_parque", "placa_camping", "placa_restrito"]:
 		if p.distance_to(PONTOS[nome]) < 40.0:
 			return false
+	for l in LOCAIS.values():
+		if p.distance_to(l) < 95.0:
+			return false  # lugares novos (v11)
+	for t in TRILHAS_V11:
+		for i in t.size() - 1:
+			if Geometry2D.get_closest_point_to_segment(p, t[i], t[i + 1]).distance_to(p) < 24.0:
+				return false
 	if p.distance_to(Vector2(1180, 330)) < 16.0:
 		return false
 	return true
@@ -234,6 +252,13 @@ func _perto_da_acao(p: Vector2) -> bool:
 		return true
 	if p.distance_to(Vector2(-400, 220)) < 200.0 or p.distance_to(Vector2(1180, 330)) < 160.0:
 		return true
+	for l in LOCAIS.values():
+		if p.distance_to(l) < 280.0:
+			return true
+	for t in TRILHAS_V11:
+		for i in t.size() - 1:
+			if Geometry2D.get_closest_point_to_segment(p, t[i], t[i + 1]).distance_to(p) < 130.0:
+				return true
 	return false
 
 
@@ -256,11 +281,11 @@ func _ocupado(grade: Dictionary, p: Vector2, dist: float) -> bool:
 ## em vez de comparar cada árvore com todas as outras.
 func _preparar_floresta(rng: RandomNumberGenerator) -> void:
 	var grade := {}
-	var meta := Otimizacao.qtd_arvores_fundo()
+	var meta := int(Otimizacao.qtd_arvores_fundo() * 1.6)   # v11: mapa maior
 	var tentativas := 0
 	while _arvores_fundo.size() < meta and tentativas < meta * 12:
 		tentativas += 1
-		var p := Vector2(rng.randf_range(-1950, 1950), rng.randf_range(-980, 980)).round()
+		var p := Vector2(rng.randf_range(-1950, 2850), rng.randf_range(-1650, 1650)).round()
 		if not _livre(p) or _perto_da_acao(p) or _ocupado(grade, p, 40.0):
 			continue
 		_arvores_fundo.append([p, _sortear_arvore(rng), rng.randf() > 0.5, rng.randf_range(0.55, 0.8)])
@@ -269,11 +294,11 @@ func _preparar_floresta(rng: RandomNumberGenerator) -> void:
 	# Enfeites do chão: a maioria perto das áreas onde a câmera passa
 	var tipos := ["tufo", "tufo", "tufo2", "flor_v", "flor_a", "flor_b", "pedra_p", "pedra_m", "arbusto",
 		"arbusto2", "cogumelo", "samambaia", "galhos", "folhas", "toco", "tronco_caido"]
-	var qtd := Otimizacao.qtd_enfeites()
+	var qtd := int(Otimizacao.qtd_enfeites() * 1.4)
 	tentativas = 0
 	while _enfeites.size() < qtd and tentativas < qtd * 8:
 		tentativas += 1
-		var p := Vector2(rng.randf_range(-1900, 1300), rng.randf_range(-700, 600)).round()
+		var p := Vector2(rng.randf_range(-1900, 2400), rng.randf_range(-1250, 1250)).round()
 		if rng.randf() < 0.8 and not _perto_da_acao(p):
 			continue
 		var tipo: String = tipos[rng.randi_range(0, tipos.size() - 1)]
@@ -302,10 +327,10 @@ func _plantar_arvores_perto(rng: RandomNumberGenerator) -> void:
 	var grade := {}
 	var colocadas := 0
 	var tentativas := 0
-	var meta := Otimizacao.qtd_arvores()
+	var meta := int(Otimizacao.qtd_arvores() * 1.4)
 	while colocadas < meta and tentativas < meta * 30:
 		tentativas += 1
-		var p := Vector2(rng.randf_range(-1900, 1500), rng.randf_range(-700, 650)).round()
+		var p := Vector2(rng.randf_range(-1900, 2400), rng.randf_range(-1250, 1250)).round()
 		if not _livre(p) or not _perto_da_acao(p) or _ocupado(grade, p, 46.0):
 			continue
 		_nova_arvore(p, _sortear_arvore(rng), rng.randf() > 0.5, rng.randf_range(0.75, 1.0))
@@ -361,7 +386,7 @@ func _criar_luzes() -> void:
 	luz_fogueira = _nova_luz(PONTOS["fogueira"] + Vector2(0, -4), 80.0, Color(1.0, 0.55, 0.2, 0.45))
 	luz_fogueira.tremer = 0.18
 	luz_fogueira.visible = fogueira_acesa
-	_luz_farol = _nova_luz(Vector2.ZERO, 34.0, Color(1.0, 0.92, 0.6, 0.3))
+	_luz_farol = _nova_luz(Vector2.ZERO, 60.0, Color(1.0, 0.92, 0.6, 0.45))
 	_luz_farol.visible = false
 	_luz_lua = _nova_luz(Vector2(1060, -330), 40.0, Color(0.6, 0.7, 1.0, 0.25))
 	_luz_lua.visible = lua_no_lago
@@ -389,12 +414,12 @@ func _desenhar_chao(c: Node2D) -> void:
 	var grama_seca := PixelArte.textura("grama_seca")
 	var terra := PixelArte.textura("terra")
 	# grama em todo o mapa (um único comando de desenho!)
-	PixelArte.azulejo(c, Rect2(-2000, -1000, 4000, 2000), grama)
+	PixelArte.azulejo(c, CHAO, grama)
 	# manchas mais escuras e mais secas (pixeladas)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	for k in Otimizacao.qtd_manchas():
-		var centro := Vector2(rng.randf_range(-1950, 1950), rng.randf_range(-980, 980))
+		var centro := Vector2(rng.randf_range(CHAO.position.x, CHAO.end.x), rng.randf_range(CHAO.position.y, CHAO.end.y))
 		var r := Vector2(rng.randf_range(20, 70), rng.randf_range(12, 40))
 		if rng.randf() < 0.5:
 			PixelArte.elipse(c, centro, r, Color(0.75, 0.8, 0.72), grama)
@@ -419,6 +444,11 @@ func _desenhar_chao(c: Node2D) -> void:
 	# trilha das pegadas
 	for i in TRILHA.size() - 1:
 		PixelArte.trilha(c, TRILHA[i], TRILHA[i + 1], 9.0, Color(0.85, 0.8, 0.75), terra)
+	# v11: trilhas novas e o chão dos lugares novos
+	for t in TRILHAS_V11:
+		for i in t.size() - 1:
+			_trilha_leve(c, t[i], t[i + 1], 6.0, terra)
+	_chao_locais(c, terra, grama_seca)
 	# lago: lama na margem, água e um tom mais claro no meio
 	PixelArte.elipse(c, Vector2(1090, -300), Vector2(276, 160), Color(0.65, 0.55, 0.45), terra)
 	PixelArte.elipse(c, Vector2(1090, -300), Vector2(262, 150), Color.WHITE, PixelArte.textura("agua"))
@@ -566,7 +596,7 @@ func _atualizar_farois() -> void:
 			_farol_node.visible = false
 		return
 	if _luz_farol:
-		_luz_farol.position = c.position + Vector2(48, -6)
+		_luz_farol.position = c.position + Vector2(72, -6)
 		_luz_farol.visible = farois_acesos
 	if _farol_node and is_instance_valid(_farol_node):
 		_farol_node.visible = farois_acesos
@@ -576,16 +606,6 @@ func _atualizar_farois() -> void:
 func _apagar_cone() -> void:
 	if is_instance_valid(_farol_node):
 		_farol_node.queue_free()
-
-
-func _desenhar_farois(n: Node2D) -> void:
-	# BUG ANTIGO: o farol era um triângulo fixo que atravessava árvores.
-	# Agora usa FarolCone: raios que param nos obstáculos + 3 faixas de intensidade.
-	if not farois_acesos or carro_ref() == null:
-		return
-	var origem: Vector2 = carro_ref().global_position + Vector2(30, -9)
-	var poli := FarolCone.poligono(origem, 0.0, 150.0, 0.4, obstaculos_luz())
-	FarolCone.desenhar(n, origem, poli, Color(1.0, 0.92, 0.65), 0.9)
 
 
 ## Troncos das árvores e paredes da cabana: bloqueiam a luz dos faróis.
@@ -673,3 +693,113 @@ func _ponto_na_trilha(t: float) -> Vector2:
 	var x := clampf(t, 0.0, 1.0) * n
 	var i := mini(int(x), n - 1)
 	return (TRILHA[i] as Vector2).lerp(TRILHA[i + 1], x - i)
+
+
+# ---------------------------------------------------------------
+# v11 — TRILHAS LEVES E LUGARES NOVOS
+# ---------------------------------------------------------------
+## Trilha com UM retângulo de textura a cada 4 pixels (a trilha antiga usava
+## elipses inteiras: muito mais comandos de desenho).
+func _trilha_leve(c: CanvasItem, a: Vector2, b: Vector2, larg: float, tex: Texture2D) -> void:
+	var passos := maxi(int(a.distance_to(b) / 4.0), 1)
+	for i in passos + 1:
+		var p := a.lerp(b, float(i) / passos).round()
+		var l := larg + float((i * 7) % 3) - 1.0       # beira irregular
+		var r := Rect2(p - Vector2(l, l * 0.6), Vector2(l * 2.0, l * 1.2))
+		c.draw_texture_rect_region(tex, r, r, Color(0.85, 0.8, 0.75))
+
+
+## O que fica no chão (desenhado uma vez só, junto com a grama).
+func _chao_locais(c: CanvasItem, terra: Texture2D, seca: Texture2D) -> void:
+	for l in LOCAIS.values():
+		PixelArte.elipse(c, l + Vector2(0, 10), Vector2(80, 46), Color(0.9, 0.88, 0.82), seca)
+	# acampamento: chão batido, fogueira apagada, latas
+	var a: Vector2 = LOCAIS["acampamento"]
+	PixelArte.elipse(c, a, Vector2(46, 26), Color(0.8, 0.75, 0.7), terra)
+	PixelArte.elipse(c, a + Vector2(4, 6), Vector2(8, 5), Color(0.08, 0.07, 0.06))
+	for k in 7:
+		var ang := TAU * k / 7.0
+		c.draw_rect(Rect2((a + Vector2(4, 6) + Vector2(cos(ang) * 9, sin(ang) * 6)).round(), Vector2(3, 2)), Color(0.35, 0.35, 0.37))
+	c.draw_rect(Rect2(a + Vector2(-20, 14), Vector2(3, 4)), Color(0.55, 0.55, 0.6))
+	c.draw_rect(Rect2(a + Vector2(28, -6), Vector2(3, 4)), Color(0.5, 0.2, 0.15))
+	# caverna: terra escura na frente
+	PixelArte.elipse(c, LOCAIS["caverna"] + Vector2(0, 12), Vector2(34, 12), Color(0.6, 0.55, 0.5), terra)
+	# casa de barcos: pier de madeira entrando no lago
+	var cb: Vector2 = LOCAIS["casa_barcos"]
+	for y in range(0, 46, 3):
+		c.draw_rect(Rect2(cb + Vector2(-8, y), Vector2(16, 2)), Color("5c3e22"))
+		c.draw_rect(Rect2(cb + Vector2(-8, y + 2), Vector2(16, 1)), Color("2a1b0e"))
+
+
+## Prédios em pé (entram no y-sort: o jogador passa atrás deles).
+func _criar_locais() -> void:
+	_novo_local("Guarita", LOCAIS["guarita"], _desenhar_guarita)
+	_novo_local("CasaBarcos", LOCAIS["casa_barcos"], _desenhar_casa_barcos)
+	_novo_local("Caverna", LOCAIS["caverna"] + Vector2(0, -2), _desenhar_caverna)
+	var a: Vector2 = LOCAIS["acampamento"]
+	_novo_local("Barraca1", a + Vector2(-30, -10), _desenhar_barraca.bind(Color("3a5a3a")))
+	_novo_local("Barraca2", a + Vector2(34, 18), _desenhar_barraca.bind(Color("6a3a2a")))
+
+
+func _novo_local(nome: String, pos: Vector2, desenho: Callable) -> void:
+	var n := Node2D.new()
+	n.name = nome
+	n.position = pos
+	n.draw.connect(desenho.bind(n))
+	arvores.add_child(n)
+
+
+func _desenhar_guarita(n: Node2D) -> void:
+	var madeira := Color("5c3e22")
+	var escura := Color("2a1b0e")
+	n.draw_rect(Rect2(-30, -4, 62, 6), Color(0, 0, 0, 0.35))
+	n.draw_rect(Rect2(-28, -38, 56, 38), madeira)
+	for y in range(-36, 0, 5):
+		n.draw_rect(Rect2(-28, y, 56, 1), escura)                         # tábuas
+	n.draw_colored_polygon(PackedVector2Array([Vector2(-33, -37), Vector2(0, -56), Vector2(33, -37)]), Color("3a2a22"))
+	n.draw_rect(Rect2(-33, -38, 66, 2), Color("1e140e"))
+	n.draw_rect(Rect2(-6, -22, 12, 22), Color("1a120c"))                 # porta
+	n.draw_rect(Rect2(-6, -22, 12, 22), escura, false, 1.0)
+	n.draw_rect(Rect2(12, -28, 10, 8), Color(0.05, 0.07, 0.1))           # janela
+	n.draw_rect(Rect2(-22, -28, 10, 8), Color(0.05, 0.07, 0.1))
+	n.draw_rect(Rect2(-40, -60, 3, 60), escura)                          # mastro
+	n.draw_rect(Rect2(-37, -60, 10, 6), Color("6a2a20"))                 # bandeira rasgada
+	var raizes := Color("0e0a0c")
+	for k in 6:                                                          # raízes pretas saindo do chão
+		n.draw_rect(Rect2(-26 + k * 10, -6 - (k % 3) * 4, 2, 6 + (k % 3) * 4), raizes)
+
+
+func _desenhar_casa_barcos(n: Node2D) -> void:
+	n.draw_rect(Rect2(-34, -4, 70, 6), Color(0, 0, 0, 0.35))
+	n.draw_rect(Rect2(-32, -36, 64, 36), Color("3e4a4e"))
+	for x in range(-32, 32, 6):
+		n.draw_rect(Rect2(x, -36, 1, 36), Color("232c30"))
+	n.draw_colored_polygon(PackedVector2Array([Vector2(-36, -35), Vector2(0, -50), Vector2(36, -35)]), Color("2a2224"))
+	n.draw_rect(Rect2(-14, -26, 28, 26), Color("1a1614"))                # portão grande
+	n.draw_rect(Rect2(-14, -26, 28, 26), Color("4a3a2a"), false, 1.0)
+	n.draw_rect(Rect2(-12, -14, 24, 2), Color("6a6a72"))                 # corrente
+	n.draw_rect(Rect2(-2, -16, 5, 5), Color("8a7a30"))                   # cadeado
+	n.draw_rect(Rect2(20, -30, 8, 6), Color(0.04, 0.06, 0.08))
+
+
+func _desenhar_caverna(n: Node2D) -> void:
+	var pedra := [Color("2c2c32"), Color("3c3c44"), Color("4d4d56"), Color("5e5e68")]
+	n.draw_rect(Rect2(-50, -4, 100, 6), Color(0, 0, 0, 0.35))
+	for d in [[Vector2(-30, -20), Vector2(24, 22)], [Vector2(30, -20), Vector2(24, 22)], [Vector2(0, -38), Vector2(40, 24)],
+			[Vector2(-44, -8), Vector2(12, 10)], [Vector2(44, -8), Vector2(12, 10)]]:
+		PixelArte.elipse(n, d[0], d[1], pedra[1])
+		PixelArte.elipse(n, d[0] + Vector2(-3, -4), d[1] * 0.6, pedra[2])
+		PixelArte.elipse(n, d[0] + Vector2(-5, -7), d[1] * 0.25, pedra[3])
+	PixelArte.elipse(n, Vector2(0, -12), Vector2(14, 14), Color(0.01, 0.01, 0.02))   # boca escura
+	n.draw_rect(Rect2(-14, -12, 28, 12), Color(0.01, 0.01, 0.02))
+	for k in 5:   # estalactites
+		n.draw_rect(Rect2(-10 + k * 5, -24 + (k % 2) * 2, 2, 3), pedra[0])
+
+
+func _desenhar_barraca(n: Node2D, cor: Color) -> void:
+	n.draw_rect(Rect2(-14, -2, 30, 4), Color(0, 0, 0, 0.3))
+	n.draw_colored_polygon(PackedVector2Array([Vector2(-14, 0), Vector2(0, -18), Vector2(14, 0)]), cor)
+	n.draw_colored_polygon(PackedVector2Array([Vector2(-3, 0), Vector2(0, -9), Vector2(5, 0)]), Color(0.04, 0.03, 0.03))
+	n.draw_line(Vector2(0, -18), Vector2(6, -6), cor.darkened(0.5), 1.0)     # rasgo
+	n.draw_rect(Rect2(-16, -1, 2, 2), Color("8a8a92"))
+	n.draw_rect(Rect2(15, -1, 2, 2), Color("8a8a92"))

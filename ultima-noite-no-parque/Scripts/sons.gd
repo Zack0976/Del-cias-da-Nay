@@ -33,9 +33,12 @@ const PASTA_PRONTOS := "res://Sons/gerados/"
 ## No Mali-G68, WAV grandes em loop crasham o motor. Só estes são seguros:
 const SONS_LEVES_MOBILE := ["clique", "batida", "passo", "galho", "item", "grito", "rangido",
 	# v10: sons curtos novos (WAV pequenos, tocam uma vez só — seguros no Mali)
-	"machado", "arvore_cai", "agua", "sapo", "coracao", "sussurro", "papel", "cama", "rajada", "peixe"]
+	"machado", "arvore_cai", "agua", "sapo", "coracao", "sussurro", "papel", "cama", "rajada", "peixe",
+	# v11
+	"uivo", "rosnado", "voz", "fosforo", "comer", "beber", "ziper", "pedra", "porta", "pista", "resgate", "passo_madeira"]
 ## v10: sons novos que vêm como .wav prontos (feitos por ferramentas/gerar_sons_v10.py)
-const SONS_WAV := ["machado", "arvore_cai", "agua", "sapo", "coracao", "sussurro", "papel", "cama", "rajada", "peixe"]
+const SONS_WAV := ["machado", "arvore_cai", "agua", "sapo", "coracao", "sussurro", "papel", "cama", "rajada", "peixe",
+	"uivo", "rosnado", "voz", "fosforo", "comer", "beber", "ziper", "pedra", "porta", "pista", "resgate", "passo_madeira"]
 ## v10: no máximo tantos efeitos tocando ao mesmo tempo (protege o áudio do celular)
 const MAX_EFEITOS_MOBILE := 8
 const MAX_EFEITOS_PC := 16

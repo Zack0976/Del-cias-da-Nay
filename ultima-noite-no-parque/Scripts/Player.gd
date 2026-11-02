@@ -12,6 +12,7 @@ signal alvo_mudou(alvo: Interagivel)  ## o HUD usa para mostrar/esconder o botã
 @export var atrito: float = 1000.0         ## quão rápido para ao soltar
 @export_range(0.0, 0.9) var zona_morta: float = 0.2  ## ignora toques fracos no joystick
 
+var som_passo := "passo"                   ## v11: "passo_madeira" dentro da cabana
 var pode_mover: bool = true                 ## desligado em cutscenes, diálogos e pausa
 var alvo: Interagivel = null                ## objeto mais perto que dá para examinar
 
@@ -100,7 +101,7 @@ func _sons_de_passo(delta: float) -> void:
 	_tempo_passo -= delta
 	if _tempo_passo <= 0.0:
 		_tempo_passo = 0.36
-		Sons.tocar(self, "passo", -14.0, randf_range(0.85, 1.15))
+		Sons.tocar(self, som_passo, -14.0, randf_range(0.85, 1.15))
 
 
 # ---------------------------------------------------------------

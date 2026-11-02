@@ -57,6 +57,7 @@ const DADOS := {
 	"cha":       {"nome": "Chá de ervas", "pilha": 3, "tipo": "consumo", "desc": "Acalma a mente. (-35 estresse, +10 energia)"},
 	# --- itens da Parte 1 ---
 	"lanterna":  {"nome": "Lanterna", "pilha": 1, "tipo": "luz", "desc": "Da Marina. Gasta bateria."},
+	"chave_barcos": {"nome": "Chave da casa de barcos", "pilha": 1, "tipo": "recurso", "desc": "Chave enferrujada. Abre a corrente da casa de barcos, no lago."},
 	"chave":     {"nome": "Chave da cabana", "pilha": 1, "tipo": "recurso", "desc": "Abre a porta da cabana."},
 }
 
@@ -307,7 +308,7 @@ static func icone(id: String) -> Texture2D:
 			for y in range(6, 12):
 				r.pintar(Vector2(13, y), "luz", 3)
 			r.caixa(Rect2(4, 6, 2, 1.5), 1, 2, "vermelho")
-		"chave":
+		"chave", "chave_barcos":
 			for k in 10:
 				var ang := TAU * k / 10.0
 				r.bola(Vector2(4.5, 8) + Vector2(cos(ang) * 2.6, sin(ang) * 2.6), Vector2(1, 1), 1, 0, "ouro")

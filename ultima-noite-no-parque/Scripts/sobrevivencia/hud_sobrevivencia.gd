@@ -19,6 +19,7 @@ signal botao_luz
 signal botao_mochila_aberta(aberta: bool)
 signal barras_alternadas(visivel: bool)
 signal peixe_mordeu
+signal cartaz_fechado
 
 const COR_TEXTO := Color(0.9, 0.86, 0.78)
 const CORES_BARRA := {"Vida": Color("c94a44"), "Fome": Color("d9a04a"), "Energia": Color("6aaa6a"), "Mente": Color("9a6ad0")}
@@ -53,6 +54,7 @@ var correr_pressionado := false
 
 var inv: Inventario
 var fonte_receitas: Callable   ## devolve [receitas liberadas, perto_bancada]
+var fonte_pistas: Callable     ## v11: devolve o texto (bbcode) do diário de pistas
 
 
 func _ready() -> void:
@@ -66,6 +68,8 @@ func _ready() -> void:
 	_criar_criacao()
 	_criar_escolha()
 	_criar_pesca()
+	_criar_pistas()
+	_criar_cartaz()
 	_criar_toast()
 
 
@@ -308,6 +312,10 @@ func _criar_botoes() -> void:
 	_por_icone(b_criar, icone_botao("criar"), false)
 	b_criar.pressed.connect(func(): abrir_criacao(not criacao.visible))
 	direita.add_child(b_criar)
+	var b_pistas := _botao("PISTAS", Vector2(166, 58))
+	_por_icone(b_pistas, Itens.icone("pagina"), false)
+	b_pistas.pressed.connect(func(): abrir_pistas(not pistas.visible))
+	direita.add_child(b_pistas)
 
 	# coluna de baixo: ATACAR / LUZ / CORRER (o EXAMINAR fica no HUD da Parte 1)
 	var baixo := HBoxContainer.new()
@@ -478,6 +486,7 @@ func _criar_mochila() -> void:
 func abrir_mochila(sim: bool) -> void:
 	if sim:
 		abrir_criacao(false)
+		Sons.tocar(self, "ziper", -12.0)
 	mochila.visible = sim
 	_slot_sel = -1
 	atualizar_mochila()
@@ -729,7 +738,151 @@ func terminou_criar(texto: String) -> void:
 
 
 func painel_aberto() -> bool:
-	return mochila.visible or criacao.visible or escolha.visible or pesca.visible
+	return mochila.visible or criacao.visible or escolha.visible or pesca.visible or pistas.visible or cartaz.visible
+
+
+# ---------------------------------------------------------------
+# v11 — DIÁRIO DE PISTAS (o que você descobriu e onde estão seus amigos)
+# ---------------------------------------------------------------
+var pistas: PanelContainer
+var _pistas_txt: RichTextLabel
+
+
+func _criar_pistas() -> void:
+	pistas = PanelContainer.new()
+	pistas.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	pistas.offset_left = -430
+	pistas.offset_right = 430
+	pistas.offset_top = -300
+	pistas.offset_bottom = 300
+	pistas.add_theme_stylebox_override("panel", _caixa(Color(0.05, 0.045, 0.04, 0.96), Color(0.45, 0.35, 0.2)))
+	pistas.visible = false
+	add_child(pistas)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	pistas.add_child(v)
+	v.add_child(_label("DIÁRIO DE PISTAS", 28, Color(0.85, 0.7, 0.4)))
+	var rol := ScrollContainer.new()
+	rol.custom_minimum_size = Vector2(820, 470)
+	rol.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(rol)
+	_pistas_txt = RichTextLabel.new()
+	_pistas_txt.bbcode_enabled = true
+	_pistas_txt.fit_content = true
+	_pistas_txt.scroll_active = false
+	_pistas_txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_pistas_txt.mouse_filter = Control.MOUSE_FILTER_PASS
+	_pistas_txt.add_theme_font_size_override("normal_font_size", 18)
+	_pistas_txt.add_theme_font_size_override("bold_font_size", 20)
+	_pistas_txt.add_theme_color_override("default_color", COR_TEXTO)
+	rol.add_child(_pistas_txt)
+	var b := _botao("FECHAR", Vector2(160, 50))
+	b.size_flags_horizontal = Control.SIZE_SHRINK_END
+	b.pressed.connect(func(): abrir_pistas(false))
+	v.add_child(b)
+
+
+func abrir_pistas(sim: bool) -> void:
+	if sim:
+		mochila.visible = false
+		criacao.visible = false
+		if fonte_pistas.is_valid():
+			_pistas_txt.text = fonte_pistas.call()
+		Sons.tocar(self, "papel", -10.0)
+	pistas.visible = sim
+	botao_mochila_aberta.emit(painel_aberto())
+
+
+# ---------------------------------------------------------------
+# v11 — CARTAZ DE DESAPARECIDO (aparece na tela com o rosto da pessoa)
+# ---------------------------------------------------------------
+var cartaz: PanelContainer
+var _cartaz_titulo: Label
+var _cartaz_foto: TextureRect
+var _cartaz_nome: Label
+var _cartaz_info: Label
+var _cartaz_visto: Label
+var _cartaz_nota: Label
+
+
+func _criar_cartaz() -> void:
+	cartaz = PanelContainer.new()
+	cartaz.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	cartaz.offset_left = -330
+	cartaz.offset_right = 330
+	cartaz.offset_top = -320
+	cartaz.offset_bottom = 320
+	var papel := StyleBoxFlat.new()
+	papel.bg_color = Color("d9d1b5")
+	papel.border_color = Color("8a7f62")
+	papel.set_border_width_all(4)
+	papel.shadow_color = Color(0, 0, 0, 0.6)
+	papel.shadow_size = 12
+	papel.content_margin_left = 22
+	papel.content_margin_right = 22
+	papel.content_margin_top = 16
+	papel.content_margin_bottom = 16
+	cartaz.add_theme_stylebox_override("panel", papel)
+	cartaz.visible = false
+	add_child(cartaz)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	cartaz.add_child(v)
+	_cartaz_titulo = _label("DESAPARECIDA", 44, Color("a01c1c"))
+	_cartaz_titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(_cartaz_titulo)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 16)
+	v.add_child(h)
+	_cartaz_foto = TextureRect.new()
+	_cartaz_foto.custom_minimum_size = Vector2(224, 224)
+	_cartaz_foto.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_cartaz_foto.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	h.add_child(_cartaz_foto)
+	var info := VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.add_theme_constant_override("separation", 6)
+	h.add_child(info)
+	_cartaz_nome = _label("", 28, Color("1e1a14"))
+	_cartaz_nome.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_child(_cartaz_nome)
+	_cartaz_info = _label("", 20, Color("3a3428"))
+	info.add_child(_cartaz_info)
+	_cartaz_visto = _label("", 18, Color("2a261e"))
+	_cartaz_visto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_cartaz_visto.custom_minimum_size = Vector2(330, 0)
+	info.add_child(_cartaz_visto)
+	var tel := _label("QUALQUER INFORMAÇÃO: GUARDA-PARQUE SERRA NEGRA", 15, Color("6a2a20"))
+	tel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(tel)
+	_cartaz_nota = _label("", 19, Color("1f3a7a"))   # caneta azul
+	_cartaz_nota.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_cartaz_nota.custom_minimum_size = Vector2(600, 0)
+	v.add_child(_cartaz_nota)
+	var b := _botao("FECHAR", Vector2(180, 52))
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.pressed.connect(func(): cartaz.visible = false; botao_mochila_aberta.emit(painel_aberto()); cartaz_fechado.emit())
+	v.add_child(b)
+
+
+## Mostra o cartaz e espera o jogador fechar.
+func mostrar_cartaz(c: Dictionary, foto: Texture2D) -> void:
+	mochila.visible = false
+	criacao.visible = false
+	pistas.visible = false
+	var plural := " E " in str(c["nome"])
+	_cartaz_titulo.text = "DESAPARECIDOS" if plural else "DESAPARECIDO(A)"
+	_cartaz_foto.texture = foto
+	_cartaz_nome.text = str(c["nome"])
+	_cartaz_info.text = "%s anos  ·  desde %s" % [str(c["idade"]) + ("+" if plural else ""), c["ano"]]
+	_cartaz_visto.text = c["visto"]
+	_cartaz_nota.text = c["nota"]
+	cartaz.visible = true
+	cartaz.scale = Vector2(0.9, 0.9)
+	cartaz.pivot_offset = cartaz.size / 2.0
+	create_tween().tween_property(cartaz, "scale", Vector2.ONE, 0.15)
+	botao_mochila_aberta.emit(true)
+	await cartaz_fechado
 
 
 # ---------------------------------------------------------------

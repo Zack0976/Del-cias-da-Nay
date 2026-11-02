@@ -128,6 +128,7 @@ func _exit_tree() -> void:
 	SpriteLibrary._cache_frames.clear()
 	PixelArte.limpar_cache()
 	Sombras.limpar_cache()
+	Retrato.limpar_cache()
 
 
 func _notification(what: int) -> void:

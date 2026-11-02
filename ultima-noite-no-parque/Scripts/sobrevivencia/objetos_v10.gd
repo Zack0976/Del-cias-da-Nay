@@ -12,18 +12,22 @@ extends RefCounted
 ## Textos dos cartazes. Pessoas que sumiram no parque ANTES de vocês chegarem.
 ## (Não muda a história: são pistas do que já acontecia lá.)
 const CARTAZES := [
-	{"nome": "HELENA DUARTE, 17", "ano": "1987", "cor": Color(0.55, 0.35, 0.3),
-	"texto": ["DESAPARECIDA — Helena Duarte, 17 anos. Vista pela última vez na área de camping do Parque Serra Negra, em 1987.",
-		"Alguém escreveu à caneta embaixo: \"ela disse que ouviu batidas na porta a noite toda\"."]},
-	{"nome": "JOÃO E PEDRO ALVES", "ano": "1999", "cor": Color(0.35, 0.4, 0.55),
-	"texto": ["DESAPARECIDOS — os irmãos João e Pedro Alves, 12 e 15 anos. Saíram para pescar no lago e não voltaram.",
-		"Embaixo, quase apagado: \"não pesquem depois que escurece\"."]},
-	{"nome": "SÉRGIO MOTA, 34", "ano": "2006", "cor": Color(0.45, 0.45, 0.35),
-	"texto": ["DESAPARECIDO — Sérgio Mota, 34 anos, guarda-florestal do parque. Última ronda: 2006.",
-		"No verso do cartaz, rabiscado: \"eles não gostam de luz. NUNCA deixe a fogueira apagar\"."]},
-	{"nome": "CAROLINA LIMA, 19", "ano": "2014", "cor": Color(0.5, 0.3, 0.45),
-	"texto": ["DESAPARECIDA — Carolina Lima, 19 anos. Acampava com amigos. Os amigos voltaram. Ela não.",
-		"Tem um bilhete preso com fita: \"deixei mantimentos embaixo do barco virado, na beira do lago. Se você está lendo isso, ainda dá tempo.\""]},
+	{"nome": "HELENA DUARTE", "idade": 17, "ano": "1987", "cor": Color(0.55, 0.35, 0.3),
+	"visto": "Vista pela última vez na área de camping do Parque Estadual da Serra Negra, numa sexta-feira à noite.",
+	"nota": "Escrito à caneta embaixo: \"ela disse que ouviu batidas na porta a noite toda\".",
+	"rosto": {"pele": Color("e8bfa0"), "cabelo": Color("2a1a10"), "estilo": "longo", "roupa": Color("8a3a3a"), "antiga": true}},
+	{"nome": "JOÃO E PEDRO ALVES", "idade": 12, "ano": "1999", "cor": Color(0.35, 0.4, 0.55),
+	"visto": "Os irmãos (12 e 15 anos) saíram para pescar no lago do parque e não voltaram.",
+	"nota": "Quase apagado: \"não pesquem depois que escurece\".",
+	"rosto": {"pele": Color("b88660"), "cabelo": Color("120c08"), "estilo": "curto", "roupa": Color("2f5a8a"), "bone": Color("b03030")}},
+	{"nome": "SÉRGIO MOTA", "idade": 34, "ano": "2006", "cor": Color(0.45, 0.45, 0.35),
+	"visto": "Guarda-florestal do parque. Saiu para a última ronda da noite e nunca voltou para a guarita.",
+	"nota": "No verso, rabiscado: \"eles não gostam de luz. NUNCA deixe a fogueira apagar\".",
+	"rosto": {"pele": Color("d8a882"), "cabelo": Color("4a3420"), "estilo": "careca", "roupa": Color("4a5a30"), "barba": true}},
+	{"nome": "CAROLINA LIMA", "idade": 19, "ano": "2014", "cor": Color(0.5, 0.3, 0.45),
+	"visto": "Acampava com amigos perto do lago. Os amigos voltaram. Ela não.",
+	"nota": "Bilhete preso com fita: \"deixei mantimentos embaixo do barco virado, na beira do lago. Se você está lendo isso, ainda dá tempo.\"",
+	"rosto": {"pele": Color("8a5a3a"), "cabelo": Color("1a1010"), "estilo": "cacheado", "roupa": Color("6a3a7a"), "oculos": true}},
 ]
 ## Onde ficam (lá fora, dentro da área jogável, longe das árvores-sprite da cabana)
 const POS_CARTAZES := [Vector2(-520, -48), Vector2(905, -150), Vector2(1030, 110), Vector2(-1150, 52)]
